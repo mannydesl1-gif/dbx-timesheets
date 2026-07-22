@@ -824,13 +824,14 @@ export default function TimesheetApp() {
     setDocsError("");
     try {
       const snap = await getDocs(query(collection(db, "company_docs"), orderBy("uploadedAt","desc")));
-      setCompanyDocs(snap.docs.map(d=>({id:d.id,...d.data()})));
+      // Only show docs visible to all employees — filter out management-only docs
+      setCompanyDocs(snap.docs.map(d=>({id:d.id,...d.data()})).filter(d => d.visibility !== "management"));
     } catch(e) {
       console.error(e);
       // Try without orderBy in case index is missing
       try {
         const snap2 = await getDocs(collection(db, "company_docs"));
-        setCompanyDocs(snap2.docs.map(d=>({id:d.id,...d.data()})));
+        setCompanyDocs(snap2.docs.map(d=>({id:d.id,...d.data()})).filter(d => d.visibility !== "management"));
       } catch(e2) { setDocsError(e2.message||"Failed to load documents"); }
     }
     setDocsLoading(false);
