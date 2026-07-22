@@ -434,7 +434,9 @@ export default function TimesheetApp() {
   const S = makeS(C);
   const savedEmployee = (() => { try{return JSON.parse(localStorage.getItem("cargodx_employee")||"null");}catch{return null;} })();
   const savedTab = (() => { const v = parseInt(localStorage.getItem("cargodx_tab")||"0",10); return (v>=1&&v<=7)?v:0; })();
-  const [tab, setTab] = useState(savedEmployee ? (savedTab || 2) : 1); // must be registered to start past tab 1
+  const logBlocked = (savedEmployee && savedEmployee.logRestricted === true);
+  const defaultTab = logBlocked ? 5 : 2; // restricted users land on Orders, not the daily log
+  const [tab, setTab] = useState(savedEmployee ? (logBlocked ? 5 : (savedTab || 2)) : 1); // must be registered to start past tab 1
   const [events, setEvents] = useState([]);
   const [employee, setEmployee] = useState(savedEmployee);
   const [activeSession, setActiveSession] = useState(null); // found session on another device
@@ -704,6 +706,8 @@ export default function TimesheetApp() {
   const goTab = (n) => {
     // Security: must be registered (PIN-verified) to access any tab beyond registration
     if(!employee && n!==1){ setTab(1); return; }
+    // Per-person restriction: block the daily-log workflow (tabs 2-4) entirely.
+    if(employee && employee.logRestricted === true && n>=2 && n<=4){ setTab(5); return; }
     setTab(n); setSelEquip(null);
     if(n===4) setTimeout(()=>loadData(), 800);
     if(n===5) loadOrders();
@@ -715,7 +719,7 @@ export default function TimesheetApp() {
   // If employee is restored from localStorage but has no drvId (old session format),
   // silently look it up from the drivers collection so order matching works.
   useEffect(() => {
-    if (!savedEmployee || savedEmployee.drvId) return;
+    if (!savedEmployee) return;
     (async () => {
       try {
         const empKey = String(savedEmployee.employeeId || savedEmployee.key || "").trim().toLowerCase();
@@ -725,11 +729,17 @@ export default function TimesheetApp() {
           String(d.data().employeeId || "").trim().toLowerCase() === empKey
         );
         if (match) {
-          const updated = { ...savedEmployee, drvId: match.id };
-          setEmployee(updated);
-          localStorage.setItem("cargodx_employee", JSON.stringify(updated));
+          // Sync drvId and the live log-restriction flag from the driver record,
+          // so an admin toggling access takes effect on the next app open.
+          const restricted = match.data().logRestricted === true;
+          const needsUpdate = !savedEmployee.drvId || savedEmployee.logRestricted !== restricted;
+          if (needsUpdate) {
+            const updated = { ...savedEmployee, drvId: match.id, logRestricted: restricted };
+            setEmployee(updated);
+            localStorage.setItem("cargodx_employee", JSON.stringify(updated));
+          }
         }
-      } catch(e) { console.error("drvId refresh failed:", e); }
+      } catch(e) { console.error("driver refresh failed:", e); }
     })();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -1027,6 +1037,7 @@ export default function TimesheetApp() {
         event: regEvent,
         key: empId.toLowerCase().replace(/\s/g,""),
         payCfg: driverData.payCfg || null,
+        logRestricted: driverData.logRestricted === true,
       };
 
       // Check for active session on another device
@@ -1294,6 +1305,8 @@ export default function TimesheetApp() {
   useEffect(()=>{ try{ localStorage.setItem("cargodx_tab", String(tab)); }catch{} },[tab]);
   // Security: if not registered/logged in, force the registration tab (blocks access to Log/Orders/Equipment/Docs)
   useEffect(()=>{ if(!employee && tab!==1) setTab(1); },[employee, tab]);
+  // Keep log-restricted users out of the daily-log workflow (tabs 2-4).
+  useEffect(()=>{ if(employee && employee.logRestricted===true && tab>=2 && tab<=4) setTab(5); },[employee, tab]);
 
   // ── Auto-logoff after 12 hours of inactivity (security) ──
   // Clears the saved employee session so re-entry requires PIN again.
@@ -1355,8 +1368,8 @@ export default function TimesheetApp() {
         </div>
       </div>
 
-      {/* Mini step indicator — only shown on log tabs 1-4 when registered */}
-      {employee && tab<=4&&<div style={{display:"flex",background:C.surface,borderBottom:`1px solid ${C.border}`,overflowX:"auto",WebkitOverflowScrolling:"touch",scrollbarWidth:"none"}}>
+      {/* Mini step indicator — only shown on log tabs 1-4 when registered and not log-restricted */}
+      {employee && !employee.logRestricted && tab<=4&&<div style={{display:"flex",background:C.surface,borderBottom:`1px solid ${C.border}`,overflowX:"auto",WebkitOverflowScrolling:"touch",scrollbarWidth:"none"}}>
         <StepTab label={t("step1")} active={tab===1} done={tab>1} onClick={()=>goTab(1)} C={C}/>
         <StepTab label={t("step2")} active={tab===2} done={tab>2} onClick={()=>goTab(2)} C={C}/>
         <StepTab label={t("step3")} active={tab===3} done={tab>3} onClick={()=>goTab(3)} C={C}/>
@@ -2539,12 +2552,12 @@ export default function TimesheetApp() {
       {/* ── Bottom Navigation Bar (hidden until registered/logged in) ── */}
       {employee && <div style={{position:"fixed",bottom:0,left:"50%",transform:"translateX(-50%)",width:"100%",maxWidth:480,background:C.black==="#f1f5f9"?"#0f172a":C.black,borderTop:`1px solid ${C.border}`,display:"flex",zIndex:1000,paddingBottom:"env(safe-area-inset-bottom,0px)"}}>
         {[
-          {icon:"📋", label:lang==="fr"?"Journal":"Log",      tabs:[1,2,3,4], go:()=>goTab(tab<=4?tab:2)},
+          {icon:"📋", label:lang==="fr"?"Journal":"Log",      tabs:[1,2,3,4], go:()=>goTab(tab<=4?tab:2), hide:employee&&employee.logRestricted===true},
           {icon:"📦", label:lang==="fr"?"Commandes":"Orders",  tabs:[5],       go:()=>goTab(5)},
           {icon:"🚛", label:lang==="fr"?"Équip.":"Equip.",     tabs:[6],       go:()=>goTab(6)},
           {icon:"📎", label:lang==="fr"?"Mes docs":"My Docs",  tabs:[8],       go:()=>goTab(8)},
           {icon:"📄", label:lang==="fr"?"Docs DBX":"DBX Docs", tabs:[7],       go:()=>goTab(7)},
-        ].map(item=>{
+        ].filter(item=>!item.hide).map(item=>{
           const active = item.tabs.includes(tab);
           return <button key={item.label} onClick={item.go} style={{flex:1,background:"none",border:"none",padding:"10px 4px 8px",display:"flex",flexDirection:"column",alignItems:"center",gap:3,cursor:"pointer",fontFamily:"inherit",color:active?"#dc2626":"#666"}}>
             <span style={{fontSize:22}}>{item.icon}</span>
