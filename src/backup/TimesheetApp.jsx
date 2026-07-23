@@ -708,6 +708,7 @@ export default function TimesheetApp() {
     if(!employee && n!==1){ setTab(1); return; }
     // Per-person restriction: block the daily-log workflow (tabs 2-4) entirely.
     if(employee && employee.logRestricted === true && n>=2 && n<=4){ setTab(5); return; }
+    if(employee && employee.driverLog === true && (n===3 || n===4)){ setTab(2); return; }
     setTab(n); setSelEquip(null);
     if(n===4) setTimeout(()=>loadData(), 800);
     if(n===5) loadOrders();
@@ -732,9 +733,10 @@ export default function TimesheetApp() {
           // Sync drvId and the live log-restriction flag from the driver record,
           // so an admin toggling access takes effect on the next app open.
           const restricted = match.data().logRestricted === true;
-          const needsUpdate = !savedEmployee.drvId || savedEmployee.logRestricted !== restricted;
+          const driverLog = match.data().driverLog === true;
+          const needsUpdate = !savedEmployee.drvId || savedEmployee.logRestricted !== restricted || savedEmployee.driverLog !== driverLog;
           if (needsUpdate) {
-            const updated = { ...savedEmployee, drvId: match.id, logRestricted: restricted };
+            const updated = { ...savedEmployee, drvId: match.id, logRestricted: restricted, driverLog };
             setEmployee(updated);
             localStorage.setItem("cargodx_employee", JSON.stringify(updated));
           }
@@ -1038,6 +1040,7 @@ export default function TimesheetApp() {
         key: empId.toLowerCase().replace(/\s/g,""),
         payCfg: driverData.payCfg || null,
         logRestricted: driverData.logRestricted === true,
+        driverLog: driverData.driverLog === true,
       };
 
       // Check for active session on another device
@@ -1307,6 +1310,7 @@ export default function TimesheetApp() {
   useEffect(()=>{ if(!employee && tab!==1) setTab(1); },[employee, tab]);
   // Keep log-restricted users out of the daily-log workflow (tabs 2-4).
   useEffect(()=>{ if(employee && employee.logRestricted===true && tab>=2 && tab<=4) setTab(5); },[employee, tab]);
+  useEffect(()=>{ if(employee && employee.driverLog===true && (tab===3||tab===4)) setTab(2); },[employee, tab]);
 
   // ── Auto-logoff after 12 hours of inactivity (security) ──
   // Clears the saved employee session so re-entry requires PIN again.
@@ -1372,8 +1376,8 @@ export default function TimesheetApp() {
       {employee && !employee.logRestricted && tab<=4&&<div style={{display:"flex",background:C.surface,borderBottom:`1px solid ${C.border}`,overflowX:"auto",WebkitOverflowScrolling:"touch",scrollbarWidth:"none"}}>
         <StepTab label={t("step1")} active={tab===1} done={tab>1} onClick={()=>goTab(1)} C={C}/>
         <StepTab label={t("step2")} active={tab===2} done={tab>2} onClick={()=>goTab(2)} C={C}/>
-        <StepTab label={t("step3")} active={tab===3} done={tab>3} onClick={()=>goTab(3)} C={C}/>
-        <StepTab label={t("step4")} active={tab===4} done={false} onClick={()=>goTab(4)} C={C}/>
+        {!(employee && employee.driverLog) && <StepTab label={t("step3")} active={tab===3} done={tab>3} onClick={()=>goTab(3)} C={C}/>}
+        {!(employee && employee.driverLog) && <StepTab label={t("step4")} active={tab===4} done={false} onClick={()=>goTab(4)} C={C}/>}
       </div>}
 
       {/* ── Screen 1: Login ── */}

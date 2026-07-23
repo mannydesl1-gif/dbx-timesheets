@@ -1350,7 +1350,11 @@ export default function TimesheetApp() {
   const cutoff = new Date(); cutoff.setDate(cutoff.getDate() - summaryDays);
   const filteredLogs = summaryDays === 0 ? logs : logs.filter(l => l.date && new Date(l.date+"T12:00:00") >= cutoff);
   const filteredExpenses = summaryDays === 0 ? expenses : expenses.filter(e => e.date && new Date(e.date+"T12:00:00") >= cutoff);
-  const uniqueDays = new Set(filteredLogs.map(l=>l.date)).size;
+  // Count only days actually worked. Previously every entry date counted, so
+  // logging a non-working day alone showed "Days worked: 1".
+  const uniqueDays = new Set(
+    filteredLogs.filter(l => l.dayType !== "non-working" && l.dayType !== "per-diem").map(l=>l.date)
+  ).size;
   const totalHours=filteredLogs.reduce((a,l)=>a+(l.hours||0),0);
   const EmpTag = ()=>employee?<div style={S.empTag}><div style={S.empDot}/>{employee.name}&nbsp;·&nbsp;{employee.event}</div>:null;
 
@@ -1710,7 +1714,15 @@ export default function TimesheetApp() {
             {/* Equipment card — shown when clocked in */}
             {clockedIn && (
               <div style={{background:C.surface,border:`1.5px solid ${C.border}`,borderRadius:10,padding:12,marginBottom:10}}>
-                <div style={{fontSize:11,fontWeight:700,color:C.gray,textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:8}}>🚛 {lang==="fr"?"Équipement":"Equipment"}</div>
+                <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}}>
+                <div style={{fontSize:11,fontWeight:700,color:C.gray,textTransform:"uppercase",letterSpacing:"0.05em"}}>🚛 {lang==="fr"?"Équipement":"Equipment"}</div>
+                {equipAnswer!==null && (
+                  <button onClick={()=>setEquipAnswer(null)}
+                    aria-label={lang==="fr"?"Fermer":"Close"}
+                    style={{fontSize:18,lineHeight:1,color:C.gray,background:"none",border:"none",
+                            padding:"2px 8px",cursor:"pointer",fontFamily:"inherit"}}>✕</button>
+                )}
+              </div>
                 {equipAnswer===null && (
                   <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
                     <button onClick={()=>setEquipAnswer("yes")} style={{padding:"10px",borderRadius:8,border:"2px solid #22c55e",background:"rgba(34,197,94,0.08)",color:"#16a34a",fontFamily:"inherit",fontWeight:700,fontSize:13,cursor:"pointer"}}>✅ {lang==="fr"?"Oui":"Yes"}</button>
@@ -1720,13 +1732,13 @@ export default function TimesheetApp() {
                 {equipAnswer==="no" && (
                   <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
                     <span style={{fontSize:13,color:C.gray,fontWeight:600}}>❌ {lang==="fr"?"Pas d'équipement":"No equipment"}</span>
-                    <button onClick={()=>setEquipAnswer(null)} style={{fontSize:11,color:C.gray,background:"none",border:`1px solid ${C.border}`,borderRadius:5,padding:"3px 10px",cursor:"pointer",fontFamily:"inherit"}}>{lang==="fr"?"Modifier":"Change"}</button>
+                    <button onClick={()=>setEquipAnswer(null)} style={{fontSize:11,color:C.gray,background:"none",border:`1px solid ${C.border}`,borderRadius:5,padding:"3px 10px",cursor:"pointer",fontFamily:"inherit"}}>{lang==="fr"?"✕ Annuler":"✕ Cancel"}</button>
                   </div>
                 )}
                 {equipAnswer==="yes" && (
                   <div>
                     <div style={{display:"flex",justifyContent:"flex-end",marginBottom:8}}>
-                      <button onClick={()=>setEquipAnswer(null)} style={{fontSize:11,color:C.gray,background:"none",border:`1px solid ${C.border}`,borderRadius:5,padding:"3px 10px",cursor:"pointer",fontFamily:"inherit"}}>{lang==="fr"?"Modifier":"Change"}</button>
+                      <button onClick={()=>setEquipAnswer(null)} style={{fontSize:11,color:C.gray,background:"none",border:`1px solid ${C.border}`,borderRadius:5,padding:"3px 10px",cursor:"pointer",fontFamily:"inherit"}}>{lang==="fr"?"✕ Annuler":"✕ Cancel"}</button>
                     </div>
                     <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:8}}>
                       <div>
@@ -1849,7 +1861,15 @@ export default function TimesheetApp() {
 
             {/* Equipment card — always available regardless of event type */}
             <div style={{background:C.surface,border:`1.5px solid ${C.border}`,borderRadius:10,padding:12,marginBottom:10}}>
-              <div style={{fontSize:11,fontWeight:700,color:C.gray,textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:8}}>🚛 {lang==="fr"?"Équipement":"Equipment"}</div>
+              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}}>
+                <div style={{fontSize:11,fontWeight:700,color:C.gray,textTransform:"uppercase",letterSpacing:"0.05em"}}>🚛 {lang==="fr"?"Équipement":"Equipment"}</div>
+                {equipAnswer!==null && (
+                  <button onClick={()=>setEquipAnswer(null)}
+                    aria-label={lang==="fr"?"Fermer":"Close"}
+                    style={{fontSize:18,lineHeight:1,color:C.gray,background:"none",border:"none",
+                            padding:"2px 8px",cursor:"pointer",fontFamily:"inherit"}}>✕</button>
+                )}
+              </div>
               {equipAnswer===null && (
                 <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
                   <button onClick={()=>setEquipAnswer("yes")} style={{padding:"10px",borderRadius:8,border:"2px solid #22c55e",background:"rgba(34,197,94,0.08)",color:"#16a34a",fontFamily:"inherit",fontWeight:700,fontSize:13,cursor:"pointer"}}>✅ {lang==="fr"?"Oui":"Yes"}</button>
@@ -1859,13 +1879,13 @@ export default function TimesheetApp() {
               {equipAnswer==="no" && (
                 <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
                   <span style={{fontSize:13,color:C.gray,fontWeight:600}}>❌ {lang==="fr"?"Pas d'équipement":"No equipment"}</span>
-                  <button onClick={()=>setEquipAnswer(null)} style={{fontSize:11,color:C.gray,background:"none",border:`1px solid ${C.border}`,borderRadius:5,padding:"3px 10px",cursor:"pointer",fontFamily:"inherit"}}>{lang==="fr"?"Modifier":"Change"}</button>
+                  <button onClick={()=>setEquipAnswer(null)} style={{fontSize:11,color:C.gray,background:"none",border:`1px solid ${C.border}`,borderRadius:5,padding:"3px 10px",cursor:"pointer",fontFamily:"inherit"}}>{lang==="fr"?"✕ Annuler":"✕ Cancel"}</button>
                 </div>
               )}
               {equipAnswer==="yes" && (
                 <div>
                   <div style={{display:"flex",justifyContent:"flex-end",marginBottom:8}}>
-                    <button onClick={()=>setEquipAnswer(null)} style={{fontSize:11,color:C.gray,background:"none",border:`1px solid ${C.border}`,borderRadius:5,padding:"3px 10px",cursor:"pointer",fontFamily:"inherit"}}>{lang==="fr"?"Modifier":"Change"}</button>
+                    <button onClick={()=>setEquipAnswer(null)} style={{fontSize:11,color:C.gray,background:"none",border:`1px solid ${C.border}`,borderRadius:5,padding:"3px 10px",cursor:"pointer",fontFamily:"inherit"}}>{lang==="fr"?"✕ Annuler":"✕ Cancel"}</button>
                   </div>
                   <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:8}}>
                     <div>
@@ -2028,6 +2048,17 @@ export default function TimesheetApp() {
             <div style={S.statBox}><div style={S.statLbl}>{t("daysWorked")}</div><div style={S.statVal}>{uniqueDays}</div></div>
             <div style={S.statBox}><div style={S.statLbl}>{t("totalExpenses")}</div><div style={{...S.statVal,color:C.green}}>{filteredExpenses.length}</div></div>
             {filteredLogs.some(l=>l.kmTotal!=null) && <div style={S.statBox}><div style={S.statLbl}>{lang==="fr"?"KM total":"Total KM"}</div><div style={{...S.statVal,color:C.blue}}>{filteredLogs.reduce((a,l)=>a+(l.kmTotal||0),0).toFixed(0)}</div></div>}
+            {/* Day-type tiles — each only renders when such entries exist, so
+                per diems and working/non-working days are counted rather than
+                hidden among 0.0h rows. */}
+            {(()=>{ const n=filteredLogs.filter(l=>l.dayType==="working-day").reduce((a,l)=>a+(l.numDays||1),0);
+              return n>0 && <div style={S.statBox}><div style={S.statLbl}>{lang==="fr"?"Jours trav.":"Working days"}</div><div style={{...S.statVal,color:"#16a34a"}}>{n}</div></div>; })()}
+            {(()=>{ const n=filteredLogs.filter(l=>l.dayType==="non-working").length;
+              return n>0 && <div style={S.statBox}><div style={S.statLbl}>{lang==="fr"?"Non trav.":"Non-working"}</div><div style={{...S.statVal,color:"#ea580c"}}>{n}</div></div>; })()}
+            {(()=>{ const n=filteredLogs.filter(l=>l.dayType==="per-diem").reduce((a,l)=>a+(l.numPerDiem||1),0);
+              return n>0 && <div style={S.statBox}><div style={S.statLbl}>{lang==="fr"?"Per diem":"Per diem"}</div><div style={{...S.statVal,color:"#0ea5e9"}}>{n}</div></div>; })()}
+            {(()=>{ const n=filteredLogs.filter(l=>l.dayType==="trip").reduce((a,l)=>a+(l.numTrips||1),0);
+              return n>0 && <div style={S.statBox}><div style={S.statLbl}>{lang==="fr"?"Voyages":"Trips"}</div><div style={{...S.statVal,color:"#8b5cf6"}}>{n}</div></div>; })()}
           </div>
 
           {/* Date filter */}
@@ -2048,16 +2079,44 @@ export default function TimesheetApp() {
               🔄 {lang==="fr"?"Réessayer":"Try again"}
             </button>
           </div>:
-            filteredLogs.map(l=><div key={l.id} style={S.logItem}>
-              <div style={S.logHdr}><div style={S.logDate}>{fmtDate(l.date,t("locale"))}</div><div style={S.logHrs}>{(l.hours||0).toFixed(1)}h</div></div>
-              <div style={S.logTime}>{l.startTime} → {l.endTime}{l.breakMinutes?` (−${l.breakMinutes}min break)`:""}</div>
-              {(l.truckUnit||l.kmStart||l.kmEnd) && <div style={{fontSize:11,color:C.gray,marginTop:3,display:"flex",gap:10,flexWrap:"wrap"}}>
-                {l.truckUnit && <span>🚛 {lang==="fr"?"Camion":"Truck"}: {l.truckUnit}</span>}
-                {l.trailerUnit && <span>🚚 {lang==="fr"?"Remorque":"Trailer"}: {l.trailerUnit}</span>}
-                {l.kmStart!=null && l.kmEnd!=null && <span>📍 {l.kmStart} → {l.kmEnd} km {l.kmTotal!=null?`(+${l.kmTotal} km)`:""}</span>}
-              </div>}
-              <div style={S.logNote}>{l.notes}</div>
-            </div>)
+            filteredLogs.map(l=>{
+              // Entries are not all clocked shifts — dayType says what each one is.
+              // Without this, a non-working day or per diem rendered as a bare
+              // "0.0h" row with an empty "→" time range and no label.
+              const DT = {
+                "working-day": { label: lang==="fr"?"Journée travaillée":"Working day", icon:"📅", color:"#16a34a" },
+                "non-working": { label: lang==="fr"?"Journée non travaillée":"Non-working day", icon:"🚫", color:"#ea580c" },
+                "per-diem":    { label: lang==="fr"?"Per diem":"Per diem", icon:"🍽️", color:"#0ea5e9" },
+                "trip":        { label: lang==="fr"?"Voyage":"Trip", icon:"🚚", color:"#8b5cf6" },
+              };
+              const meta = DT[l.dayType];
+              const isShift = !meta; // a real clocked shift has start/end times
+              const qty = l.dayType==="per-diem" ? (l.numPerDiem||1)
+                        : l.dayType==="trip" ? (l.numTrips||1)
+                        : l.dayType==="working-day" ? (l.numDays||1) : null;
+              return <div key={l.id} style={{...S.logItem, ...(meta?{borderLeft:`3px solid ${meta.color}`}:{})}}>
+                <div style={S.logHdr}>
+                  <div style={S.logDate}>{fmtDate(l.date,t("locale"))}</div>
+                  {isShift
+                    ? <div style={S.logHrs}>{(l.hours||0).toFixed(1)}h</div>
+                    : <div style={{fontFamily:"'DM Mono',monospace",fontSize:13,fontWeight:700,color:meta.color}}>
+                        {qty>1?`\u00d7${qty}`:"\u2713"}
+                      </div>}
+                </div>
+                {isShift
+                  ? <div style={S.logTime}>{l.startTime} → {l.endTime}{l.breakMinutes?` (−${l.breakMinutes}min break)`:""}</div>
+                  : <div style={{marginTop:2}}>
+                      <span style={{display:"inline-block",padding:"2px 9px",borderRadius:10,fontSize:11,fontWeight:700,
+                                    background:`${meta.color}1a`,color:meta.color}}>{meta.icon} {meta.label}</span>
+                    </div>}
+                {(l.truckUnit||l.kmStart||l.kmEnd) && <div style={{fontSize:11,color:C.gray,marginTop:3,display:"flex",gap:10,flexWrap:"wrap"}}>
+                  {l.truckUnit && <span>🚛 {lang==="fr"?"Camion":"Truck"}: {l.truckUnit}</span>}
+                  {l.trailerUnit && <span>🚚 {lang==="fr"?"Remorque":"Trailer"}: {l.trailerUnit}</span>}
+                  {l.kmStart!=null && l.kmEnd!=null && <span>📍 {l.kmStart} → {l.kmEnd} km {l.kmTotal!=null?`(+${l.kmTotal} km)`:""}</span>}
+                </div>}
+                {l.notes && <div style={S.logNote}>{l.notes}</div>}
+              </div>;
+            })
           }
 
           {/* Expenses */}
