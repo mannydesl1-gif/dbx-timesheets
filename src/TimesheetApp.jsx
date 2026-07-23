@@ -1350,11 +1350,6 @@ export default function TimesheetApp() {
   const cutoff = new Date(); cutoff.setDate(cutoff.getDate() - summaryDays);
   const filteredLogs = summaryDays === 0 ? logs : logs.filter(l => l.date && new Date(l.date+"T12:00:00") >= cutoff);
   const filteredExpenses = summaryDays === 0 ? expenses : expenses.filter(e => e.date && new Date(e.date+"T12:00:00") >= cutoff);
-  // Count only days actually worked. Previously every entry date counted, so
-  // logging a non-working day alone showed "Days worked: 1".
-  const uniqueDays = new Set(
-    filteredLogs.filter(l => l.dayType !== "non-working" && l.dayType !== "per-diem").map(l=>l.date)
-  ).size;
   const totalHours=filteredLogs.reduce((a,l)=>a+(l.hours||0),0);
   const EmpTag = ()=>employee?<div style={S.empTag}><div style={S.empDot}/>{employee.name}&nbsp;·&nbsp;{employee.event}</div>:null;
 
@@ -2045,7 +2040,6 @@ export default function TimesheetApp() {
         ) : loadingData ? <div style={{color:C.gray,fontSize:14}}>{t("loading")}</div> : <>
           <div style={S.statsGrid}>
             <div style={S.statBox}><div style={S.statLbl}>{t("totalHours")}</div><div style={{...S.statVal,color:C.red}}>{totalHours.toFixed(1)}h</div></div>
-            <div style={S.statBox}><div style={S.statLbl}>{t("daysWorked")}</div><div style={S.statVal}>{uniqueDays}</div></div>
             <div style={S.statBox}><div style={S.statLbl}>{t("totalExpenses")}</div><div style={{...S.statVal,color:C.green}}>{filteredExpenses.length}</div></div>
             {filteredLogs.some(l=>l.kmTotal!=null) && <div style={S.statBox}><div style={S.statLbl}>{lang==="fr"?"KM total":"Total KM"}</div><div style={{...S.statVal,color:C.blue}}>{filteredLogs.reduce((a,l)=>a+(l.kmTotal||0),0).toFixed(0)}</div></div>}
             {/* Day-type tiles — each only renders when such entries exist, so
