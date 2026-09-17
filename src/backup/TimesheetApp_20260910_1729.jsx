@@ -5,7 +5,6 @@ import { getStorage, ref as storageRef, uploadBytes, getDownloadURL, deleteObjec
 import { collection, addDoc, query, where, getDocs, getDoc, orderBy, setDoc, doc, updateDoc, deleteDoc, onSnapshot } from "firebase/firestore";
 import { getMessaging, getToken, onMessage } from "firebase/messaging";
 import { getAuth, signInAnonymously, onAuthStateChanged } from "firebase/auth";
-const LOGO_SRC = "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAASABIAAD/4QC8RXhpZgAATU0AKgAAAAgABQESAAMAAAABAAEAAAEaAAUAAAABAAAASgEbAAUAAAABAAAAUgEoAAMAAAABAAIAAIdpAAQAAAABAAAAWgAAAAAAAABIAAAAAQAAAEgAAAABAAeQAAAHAAAABDAyMjGRAQAHAAAABAECAwCgAAAHAAAABDAxMDCgAQADAAAAAQABAACgAgAEAAAAAQAAARugAwAEAAAAAQAAAIKkBgADAAAAAQAAAAAAAAAA/+0AOFBob3Rvc2hvcCAzLjAAOEJJTQQEAAAAAAAAOEJJTQQlAAAAAAAQ1B2M2Y8AsgTpgAmY7PhCfv/AABEIAIIBGwMBIgACEQEDEQH/xAAfAAABBQEBAQEBAQAAAAAAAAAAAQIDBAUGBwgJCgv/xAC1EAACAQMDAgQDBQUEBAAAAX0BAgMABBEFEiExQQYTUWEHInEUMoGRoQgjQrHBFVLR8CQzYnKCCQoWFxgZGiUmJygpKjQ1Njc4OTpDREVGR0hJSlNUVVZXWFlaY2RlZmdoaWpzdHV2d3h5eoOEhYaHiImKkpOUlZaXmJmaoqOkpaanqKmqsrO0tba3uLm6wsPExcbHyMnK0tPU1dbX2Nna4eLj5OXm5+jp6vHy8/T19vf4+fr/xAAfAQADAQEBAQEBAQEBAAAAAAAAAQIDBAUGBwgJCgv/xAC1EQACAQIEBAMEBwUEBAABAncAAQIDEQQFITEGEkFRB2FxEyIygQgUQpGhscEJIzNS8BVictEKFiQ04SXxFxgZGiYnKCkqNTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqCg4SFhoeIiYqSk5SVlpeYmZqio6Slpqeoqaqys7S1tre4ubrCw8TFxsfIycrS09TV1tfY2dri4+Tl5ufo6ery8/T19vf4+fr/2wBDAAMCAgICAgMCAgIDAwMDBAYEBAQEBAgGBgUGCQgKCgkICQkKDA8MCgsOCwkJDRENDg8QEBEQCgwSExIQEw8QEBD/2wBDAQMDAwQDBAgEBAgQCwkLEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBD/3QAEABL/2gAMAwEAAhEDEQA/AP1SoorO8Sao2h+HtU1pIRM2n2U90sZbaHMaFtue2cYzQBo0V+Y9t/wWG16a0guW+BGkq00EUuw+J5ON6BsZ+zejCn/8PhNf/wCiE6R/4U8n/wAjUDsz9NaK/Mr/AIfB+IP+iFaR/wCFPJ/8jUf8Pg/EH/RCtI/8KeT/AORqB8rP01or8yv+HwfiD/ohWkf+FPJ/8jVp6d/wWFtldRrHwIuWB+8bDXoXx/39CfyoFZn6RZFGRXxV4K/4Kt/s6eIZY7fxZpXizwlI+dz3lgLuGMDu0lsXCjHOT6c19SfDn4u/DD4vaQdc+GXjzRPEtkOHk067SYxn0dQdyH2YA0COxor5A/bC/bu1X9lr4haJ4HsfhrZeIU1bRX1Y3M+rtaeUVn8rZtET5zkHORXhP/D4TxB/0QrSP/Cnk/8AkagaVz9NaK/Mr/h8H4g/6IVpH/hTyf8AyNR/w+D8Qf8ARCtI/wDCnk/+RqB8rP01oNfmV/w+D8Qf9EK0j/wp5P8A5GoH/BYPX88/ArSP/Cnk/wDkagOVn6Z+5HSgEZr83/Dv/BXuO612wt/E3wbgstJluES+ubLW2ubiGEnDSRwmFfNZR82zIJAIGWwp+if2hfjJ8W/CvhDSvjH8Ftd8La34Av7OKea5fT2ujCknMdyJEmUNC2VB+XKEZJwTtyr1lQpupJXS7HoZTldTN8ZDBUpxjKei5nZN9r2er2R9M5+n50Z+n51+bR/b2/aBB2m58IAjgg6FNwfT/j4pP+G+P2gP+frwh/4Ipv8A5IryP9YMJ5/d/wAE/R/+IM8Sf9O//An/APIn6TZ+n500nmvzb/4b4/aA/wCfrwh/4Ipv/kivSvgF+3D4l8SeO7fwt8Xjosdjq5S3sr+xtHtRbXROEWXfI+UkJChhjawAOd4xpSz3CVZqGqv3OPMfCXiLLsLPFzjGSgrtRbbst7Kyvbc+2uOvFOpilSM54PSnbh617G5+ZCmm5weT9KUkdKY5wCfTrR6gOUj1p3B5GK+R/wBp79sO/wDhx4lj8F/CybSrjVbBs6vc3lu1zDCSvy26qrpmTkMxz8oKjGWrxH/hvj4//wDP14Q/8EU3/wAkV5NfOsLh6jpyu2u3/Dn6Pk/hZxDnODhjqMYxhNXXM2nbo7cr33XlqfpNRn6fnX5s/wDDfH7QB/5efCH/AIIpv/kij/hvf9oH/n58If8Agim/+SKx/wBYMJ5/d/wT0v8AiDPEn/Tv/wACf/yJ+keRn+uaUGvlT9l34w/tG/G3W5dZ8Sv4ctfBumO0VzcQ6NJFLd3GCPIgZp2A2HBd9pA+4Pm3bPSvBHxk1/4rfFLUtI+Hek2c3w+8LtJY6t4muGYjUNUU4a0sAOHWLB82YnaG+RQxDFPVw2JjiqftIJ289D89zzJa2QYyWBxE4ynHfld0n2ei17rp6nsdFFFbnkBRRRQB/9D9UqwPiD/yIfiT/sEXn/ol636wPiD/AMiH4k/7BF5/6JegD+cm1/48bL/rztf/AERHT6Za/wDHjZf9edr/AOiI6fQa9Aopyo7ttRSxPQAZJqT7Jd/8+s3/AH7NAENLUhtbocm2m/79n/CoyMEqeCOx60AJxxWt4X8V+JPBXiG38W+Edcv9G1u2YNFqFhcNBcrjHBkXll+UZR9yHGCpHFZNFANHpnxz/aA8eftCan4b1v4iyWd1qnh3Rm0Y38MXlSX6GYSCWaNQEWUYwSmFbqFT7o8zoooAKP8APWivVPgZ+zR8XP2i7nVrT4W6NYXraJFDNeG71RLMKsrOqbdyPu5jfPAxgdc0Bex5X+NFfV//AA7D/a7/AOhN8Pf+FRF/8Yqrqn/BNH9r/TrSS8j+Hul35jG7ybPxLbPK3sqyRxqT7FhQK6PluvsP9gb9r3TvgzeXHwf+K96Jvht4jnc77ti8WiXMxw8mG4W0lJzKo+WN2MmArSFfljxp4G8Z/DnxDc+EvH3hbU/D+s2mGlstRg8qXYThXGCVdDjh0ZlPI3ZBFYeSD16c9OlFrjTafMnqfon+1H+ztN8HfEEeveF4Hn8F604Onzod6Wcjci1c/wB05/dN0YfJ1C7vCPavaf2D/wBqnw34l8Mw/sk/HkxXGh6lCNM8NX919yINxHp0rn7o6fZ3PtFkME34nx7+BviT4IeMptF1Lfd6Tdl59J1LbhbqAEZVh/DKmQHHQ8OMZYL8XnOWfVpe2or3H+F/0P6o8L/EFZ5SWVZjL/aIL3X/ADpf+3Lr1a1728xoZVdGjdQysCrKejAjBB+o4PtQeDjrR+FeCfsrXRn3/wDsWftIf8JhpkHwl8bX0kmuaXbY0u+uHy2o2qADY7HkzxjG7P31w4/iC/We8HgHrX4saXqOoaNqFrq2k31xY3tnKk9tc27bZIZF5DqfXk8HggspyGIr9Qf2Z/j9pnxx8IBrp4rfxNpKpHq9mvA3H7s8YPPlSYYj0IZTypFfZZLmft4+wrP3lt5r/Nf11P5X8V+Af7FrvOcvj+4m/eS+xJ9f8Mn9z06o9nPAzivnr9rX9pGL4O+HV8NeF50k8W61E/kfxLp9v0a5ceoJwin7zH0ViO7+PHxt8PfA/wAET+JNVAutQnb7Npenq4WS8uSMhfZQAWZuygmvyu8X+LNe8c+I9Q8V+J9Ra+1TUpjNcTEYBPQKi/wIo+VV7AdSSzHTOcz+qx9jSfvv8F/n2OHwv4CfEmJWY4+P+zU3t/PJdP8ACuvfbvbLmnluZnuJ5HkkldpHd2LO7sSzMzHlmLEkseSSSajpaSviXrqf1rGMYRUYqyQV6h8APgT4l+OfjBNI08SWei2LJLrGp7Ti3hbkRxEdZ3X7o/hB3n+EPz3wq+F/if4veMrTwX4WgBuJ/wB5cXMiboLK3Bw08vqoPAXgu3y8fMV+19dfUPh7baT+x/8AsvsB4vvLdbrxL4mmAkHhvT5CfN1G4OCHvZsMsER6t8xGxDXs5RlrxkvaVPgX4+Xp3PyrxL8QI8L4Z4HBSvipr/wCL+0/Psvm9NHZ8V3F/wDELW4v2Tv2e3Ph/wAKeHUjtvHviXT/AJP7LtNmRpVlIP8Al+mBXe45hiZmyHaM19GeD/CPh3wJ4a0zwd4S0i20vR9It0tLKzt0CxwxKMBQB+p6k8msz4YfDDwr8I/Blh4H8H2jQ2NkGd5JXMk91O53S3E8h+aSaRyzM7EkkmuswfWvuFFRVlsj+RqlSdWbnUd29W337i0UUUyAooooA//R/VKsD4g/8iH4k/7BF5/6Jet+sD4g/wDIh+JP+wRef+iXoA/nJtf+PGy/687X/wBER0+mWv8Ax42X/Xna/wDoiOn0Gp7X+xf4F8JfEv8Aag8BeBfHeg2utaDq0+oLe2FyMxTiOwmlQMPZ0VvqK/WT/hgD9jo/80B8L/8Afhv8a/Lj/gnr/wAnm/DH/r41X/02XFfuVQRI+eLj/gnz+x3cR7B8CPD0JzkPCro4PqCDkV5P8Tf+CUnwP8R2Mz/DTxBr/g/UiGaNZrltTsmbqA8M5Lqme0TofQjivt+jAoJufz7fHn4AfET9nbxvJ4J+IemrFK6mexvYCXtdQt8482BzyQCQGRvnjYgMCGR382r9yf27PgdafG39nnxDbWmmLc+JPDUEmu6CwVfMNzChLQBjjAmj3xHn+MHsK/Dg+WcNCxaN1V42PdGAZT9SpBoNIu42iiigYV+jv/BHrnWviUP+nDS+f+21zX5xV+jv/BHoj+2viV6/YdK/9HXVApH6ahRSbQBRu9jSbjjofyoMz4+/4Ke/CnQfGH7OWofESXTojrngKSPUbW8CgS/Y2kVbu33dSrx87TxvRG4Kgj8c5IzFI0R5KMV+uDX60/8ABUP4/eE/DnwguvgbYavDc+J/FzQG8tIXDPZ6WsgaV5cfcMu0xRqfmZixAwjMv5f/AA6+H2vfE7xRb6Boun3N1LdzJH5duMySyOx2wxkkDe2G+YnCKrO3C8xUqRox55bHdl+CrZjXjhqCvJv7u7fZLdvojqvgN+z548+OuvjSfB9ncGTa7RyxusQwh+d2lYERxq20bxlt+AoyuR+lWs/D39q/xt8Grb4SfE34ZeHPFFxZxLHB4il8S/Z9QWSM/ubghISvmqAAxBAfnIwSKg8UeDNc/Yo/ZL8Sa38KNCt9T8diyt/7b1CEqw0i2bK/aBF95oLZDIyp/EQztkljXwf8Nvih+3F8YtfuPC3wx+KHxA1zVba2a8ks49ds4ZPJDBS6+cqK+CRkKSQGU4wRXJ9WqYiDdWTV+itou2z1PpP7ZwuSYmKyylCbpNNVZc3M5J/ErSVo32W9rN7n0b/ww9+0fgbvCujkgcn+3E/+M0f8MPftHf8AQqaP/wCDxP8A4zXAf8K1/wCCrY4EnxSI7f8AFR6T/wDF0p+Gv/BVtRuM3xRx3H/CR6QMfm+K8/8A1dwnd/f/AMA+ufjXxJ/LT/8AAX/8kdzcfsS/tG20Es7eENNk8pC+yLWo2d8DOFBjGT2AyOe4rzj4a/EXxV8I/Glj4w8PSSW95p8jRXFrMpQTwlwJ7aVTyuShB7o6A9QVPF/Cj9rD9rXwz8XNIsYPG3ijxrqttrH9mv4cu76O6h1GUSNFLaDYiglijhZQcIU8zJjV8/av7ZP7PEd1b3Pxt8DacEnQBvFemW7CZ4ZAi5uAEyNyLtEqgfMoVxnbhuLHZKsJBV8I3eO/f5H1nCXik+I8TLKOJIQ9nWXKmlZXfSV29JdH0frdfN3xm+MXib40+MZ/FXiA+REgMGnWCuGSytjgmNW/iZiAzt3O0DhQTwVKcr8pGMf4UlfN1Ks683Um7tn71gMDhssw8MJhIKMIKyS7f11Ctbwr4X1zxp4j0/wn4a0573VNTnENtbrxubqSzc7EUfM7H7o9SQDRsrK81G8hsdOs57q6uJEihggTfJI7HCoq92JIAHTnnABI+2fBnh/Sf2N/AmmajfeH/wDhKfjP8QJRpPh7w9ayZeScqX+zq2P3dvEAZbi5I/hPX93GO3LsBLH1OVaR6s+S4641w3B+BdTSVeV1CPn3f91f8Dqaq2qfsteGtI+CnwY0i28U/Gz4gZkEkkeILSJfll1O8I5jsrZTtRM5kbYgJZy1e+fBX4P6P8HfCsmlW+oXOr63qs51HxBr15g3esag4AkuJW/AKiD5URVVQAAKzPgX8Grn4eW2peL/ABvqcfiD4jeLWS48S64E2h2X/V2lspz5VpCCVjjHuzZZmY+q7QfWvvqVKNGChBWSP4yx+PxGZ4meLxUnKpN3bf8AX/DCiiiitDjCiiigAooooA//0v1SrA+IP/Ih+JP+wRef+iXrfrA+IP8AyIfiT/sEXn/ol6AP5ybX/jxsv+vO1/8AREdPplr/AMeNl/152v8A6Ijp9BqfRH/BPX/k834Y/wDXxqv/AKbLiv3Kr8Nf+Cev/J5vwx/6+NV/9NlxX7lUESCiiigkgvbdLq0mtXUFZo2jYeoYEf1r+dDxtpMWheLNZ0S3jEcOl6pqGnRIBwsdveTQov4LGo/Cv6NW6fjX873xckST4neMJIx8r+KNdcfQ6ncYoLhucfRRRQUFdf8AD/4ufE74Vy3s3w48d614bfUUSO7OmzRxmdULFA2+N+hZsYx1NchSNJGhCvPEhIO0SSqm7HXG4jP4UAexf8NgftP/APRe/G3/AIG2/wD8YqC9/ay/aV1K1ksr747eN5IJkKOq6okJIIxw8USOp91YH3ryTzIP+fq1P/b1H/8AFU+NRK/lxSwO56Ks8bE/gGoFZFq4urvXNRa41LVGa5vZg097ezPKSzYBllkcl3wAMszEkADIHT9Pf2NvAHhT4NfAXxR+0J4c0yXxz4m0SxvUg0XTQJLqB41BkjdRybiXartgcR7FjBHLflzIkkLlZUZHHO1hg+3FfS37HH7VfiL4F+Mbe1laa+0q52wTWZfH2mHIAjBYgCdOsLNwRmI4yrDixacZRqy1jHddvP5f1qfVZDUjXw9fLqL5K1VJRl3Sven5c+mvdJP3Wz0z9hD4pePvir+2Pe+LfGPxTtoJ/FWn3UmrWVwC1v4giCfubG2iOURYQfMj+bcsQcASGSV1h/bG/Zl8UfsjfFDSvjt8C5LjTfC0upJcWEttEHXw/qBJAtyCeLeUMyR5wuGeAsN0WNP9tP8AZutfDU1h+2F+zddSQ+FtUmi1bUm0p/LbRrsuHW9jXHyRM+TJx+6kyWUxyS4+rv2T/wBo7wZ+2f8ACTVvhx8T9L0+fxNaWRsPE2kSxgQ6jbONgu4kPIR+QyjPlyKygkAMexSUtVsfLVKc6M3Cas1o090zvf2S/wBqHwx+078Ok1+0SLT/ABLpWy21/SA2fs9wVyJIycF4JPvI31VsMrAfMn/BR/8AbPOgwXf7O3wp1krqt2nk+KdStCWktYXA/wBAhZORNIGXzGXLIjBQN8iEcl8RbfwB/wAE3fD3iXw38MfELeIPi5478yPT72ZFLeHtDMr/AGcyLkhpclyC3M0oZztRG23P+Cdf7Hlx4iurP9pj4s2clxbSSm+8MWN27Steyli39pzlsmQFmZ4t2S7N5zZYpsZFj0b9hX9jE/BbwPefGT4gi20bx5qulS/2Z9rhVk8M2jR5DuhITzzhWkwQFRViBwpZvl39iH9ob4meDv2mLnwc+p33xH034h6vPZa0LZjKNQlSR1/tiISYCjywJHzhTbtGvBjiVvTP+CiX7Xt58QdWf9mj4OXs99p4u1svEVxpx3tq12X8tdMix99BKVEmCA8mIeglA7j4W/D3w/8AsBfCE+NfFFnZ6r8Z/GdqYYLZpN6afH97yAw6RRkhppcAyPtUcCNBnWqwo03Oo7JHdluX4nNMVDCYSPNUm7Jef/A3fZHnn7WHwo8L/Cb4py6R4T1S3ksdStzqK6cn39LLPjyW9I2yWiB5AVx91Vx4uo3MFJABIBJOAKv69r2r+J9YvfEGvX8l7qGpTtc3VxJndLK3VjnpwAAOiqFUcAVn4zxX5viKkalWUoKyfQ/uzIcFisuy2jhcZV9pUhFJy7v/AIG3na7PrP8AZ00LwH8Ffgp4g/a/8cW91r50GzuJbPT9Kt2uJ7EKdkgdBws7HAZ2wkMe7LBfMc/R/wABPhnrVzqM3x/+K9zY6n4/8U2SJAtpJ5tl4f0pyHj0+yY9V+60sowZXGThVRV+IP2bvj3L8GPFMtvr+668Ha9tt9dtGXeqoRtFyFPBKKSHHVo/9xQfq34d60n7MPjbT/hnqusLc/B7x1dKfh9qzybotDvZRu/sWSToIJDl7VycDcYeMRg/Z5HWozwyhT0a3Xn3+Z/KnixlWZ4LPZ4nHSc6dTWEuiivsW6ON/n8XU+pF+6KWmxn5eadXsn5cFFFFABRRRQAUUUUAf/T/VKsD4g/8iH4k/7BF5/6Jet+sD4g/wDIh+JP+wRef+iXoA/nJtf+PGy/687X/wBER0+mWv8Ax42X/Xna/wDoiOn0Gp9Ef8E9f+Tzfhj/ANfGq/8ApsuK/cqvw1/4J6/8nm/DL/r41X/02XFfuUDmgiQUUZFNMiLnJ6cmgkw/HnijS/BPgrXvGGtXkdrYaJptzf3M0jBVjjijZmYk9AAK/nX1bUrjWb+fVryMx3N9I97cocnbPO7TSD8HlYfhX6Of8FLv2x9B1TRLj9nL4Y6vDqRuLgL4u1C2l3RRJGdw09GXh3ZwpmHIEYKHmQY/NhmZmLMxLEkk+pz1oLirCUUUUFBX6Af8EofAvgvxprHxDj8XeE9J1oW1lpjQ/b7RJvLLS3AO3cDjIUZ+gr8/6/R3/gjz/wAhv4lf9eGlf+jrqgUj74/4UL8FTz/wqfwn/wCCiD/4mobv9nr4F31s9pdfB/wfNFIMOj6PAVYehG2vQ6KDO5+ev7a//BPL4dQ/DvVPid8CfDieHdT8PW73t7oNkCLO/tUGZTBF0hnVQWXbhJMFXGSrp+XJ25yrq6EAqyNwynkEH3BBB/8ArV/RP8UdU03Rvhv4p1bV5oo7K00a9luGkIChBA+ck/55r+dO3Vo7KzjkRleO1t0YOMEMIlBB9MHjFBcJNNPsfb/7Df7XMHgy+ufhp8TblLzwprSNHfwXKeZEm/5Xugp4wQcTp0I/ejHz59j1v4OfCX/gnxP4k/aX0S6uPFE2rO2k/DrR0DC3sXu0Dus86jDRr5YVXbnyo0RQ8rZf88fhN8N/iF8VvHmkeCvhfYm48R38+LN2bbHbbcF7iVgDshiUhnYg8EIAzOoP6i6bp/hHwLdXf7En7QOrWHi7wV4ksoV0e+k2xSWLSECO2lVf+PbEylraQHIKqAQQM8F/qUlGT9x7eTfT0f4H106cuKKEqtJN4qmrySX8SEftf44r4v5lrunf5c/Yz/Z91f8AbM+MPiH4x/GbVxrGg6ZqS3GtrIVEmr6hIiulqUBylusXlhh0MYjiBIEmet+Jf7ZXxp+AH7ZXiK2+I9vDL4HtxDol54YsbnfZwaDtZ4bq12gbbpUZpHyFLANCQNsLnyLxjpnx6/4J0fHy6tvBuuPJb6lZT/2dfXNoZLPXdNbKp5yLgGe3ldGZVIKucr+7mYD0j9i/9m+38ZXV/wDtgftIXRk8KabPJq9pLqjF31u+Vt7Xkmcb4EdRtGMSyBNoEcUe7ubSV3sfJ06c601TgrtuyS3v0/E928C/s2fAD9j/AFXWP2mNS1h9a0ycRyeAdInh2T2i3EWUiRXwXuNrGJHYAxwg7sMZXb5k+JXxF8TfFPxjf+MvFV35t3ethIkcmG2hUny4YgeiKCecZZiWPUBek+PXx18QfHXxe+vahFLY6TZl4dI01j/x6wE43uOhmcAFj/CCEHRmfl/h98PfE/xO8Waf4N8J2Jnvb+TBdhmK2hGPMnk/2EBHuSVUcnj4nM8wnmVVUaOsb6efmf1l4fcF4XgnL5ZpmjUa8leTe1OO/KvPu+r09ea7Zortfi18J/E/wb8Z3Xg3xOgkeICW0vI49kV9bkDE0YycDcSrKSSrAZOGUniu2e1eNOEqcnGas0fqOCxtDMMPDFYWXPTkrqS2a/r/ACFVmRgykgg5GPWvpv8AZs+JXhHx74Yuv2VvjXH9u8NeJMwaJLMxU2U4/eJAsgOYirr5kDggo67AQRGG+Y6dHI8TrJG7oykMro5RlIOQVYcqwIBBHIIBHIFdGDxc8FVVWHz80ePxRw3heKcungMStXrF9YyWzX3691ddT9NfgL8SfFmgeKb/APZw+NF75/i7w/CbnQNbkwq+KtEXAS7UDA+0xE+XPGOjAOAFdQPfQygckcV8QfD7xBD+1x8MrLwhf+JpNB+MHw7lj1jw34kVQJDPGcR3GFxvikX9zdRDAIduAGQ19D/s/wDxrX4t6Hqek+IdLGg+O/B95/ZHizQWbLWV4FDCSMkDzLeVCskUg4Ktg4YFR+hYevDFUlVp7M/iPOcnxWQ46pgMZG04O3k+zXk1qj1migdKK2PLCiiigAooooA//9T9UqwPiD/yIfiT/sEXn/ol636wPiD/AMiH4k/7BF5/6JegD+cm1/48bL/rztf/AERHT6Za/wDHjZf9edr/AOiI6fQanXfCb4n+J/gx8RdF+J/gz7D/AG1oLzvafbrczwZmheF9yBlJ+R2x8wwcHnGK+mv+Hq37Uf8ACngYD30KX/5Jr43ooE1c+w5/+CqX7VMkZSKfwPAxP318OyMQPxucV5b8TP21P2lvixYyaV4r+KmpxafNkTWWjKNMglU9A3knzcewkwRwQQSD4dRQHKhS2QAFVVUBVVVCqo9ABwB7CkooHPFAwopSpXGQRuAIz3Hr9OtJ70AFfX//AAT4/ai+GP7Nmp+M7r4kLrhTW7SxitP7M02S8O6KSYvvCfcGJFwT15x0r5ApCqt95QcdMigGrn7I/wDD1H9l3/nj46/8Ji4/wpkv/BVX9l9Iy0dp47lYDhB4amUn8WwB+Jr8cfLj/wCeaf8AfIo8tO0afTaKCeU+z/2vv+Ci+tftA+F5vhj8PfCt74V8I32w6rNfXKNqGoorBhblYWaOKEkDeN7M4BQhVJz8f6TpOqeItXtNF0ixuL/UdQuEtba2t498088jYWNFHV2PQZx1JIVSwpopY8EBQCzMTgBQMkk9AAAST0xX6XfsZ/s9eG/2ZvhvJ+1b8d9MaHXZLbd4d0qaFvPsYphtRhEwyLycMFCkZjRtvBaQtMpqEXOTsl1NsPh6uIqxoUFzTk0klu29kjr/AIW/D3wx/wAE8/gdNr2vCx1j4t+MYtrop3JCQNy2qNwRbQbi0kg/1jljjLKtfJ+v+ItY8Ua1e+I/EF+99qOpTtcXdxIOZpGGDkZ4GAFC5+VVUD7orc+KfxO8SfF7xneeN/FDqLi6xHBbI26KytwcpbxnoVHVm/jfLdNoXkf/ANVfB5pmDx9XT4Ft/n6n9h+H3A1HhLA82ISeIqL33vb+6vJde712tb7B+EfjL4ZftT/D6D4FftIol/f6LNHfaPqb3HkT3McIywEoIZZhHvSQDiSJmPdgvm37Tnx+tPiXqVr4H+HrCy+H/hsJDptrbII4bxo1CpPtH/LJcYhXp/y05+QjwlW2sG6kdPyI/kSPoSO5pVDSOFCu7MQAEQsxJIACgcliSAAMkkgAEmlVzWvXw0cO/m+/ZF5f4cZPlWeVM7gt9Yx+zCX2pL9O2tulrmhaJqviLVrPQtD0+a+v7+dLa2t4Fy8srdFA/AknoFVmOApI/T/9mn9nvS/gZ4TMN01veeJ9UCSatfovGR92CPPIiTJAHclmPLE1xP7IP7M6fDHSY/H3jOw/4qzVIMRQSEN/ZVu2CYhjjzGwDIw9lBIUV9OBR619Bk2WfVo+2qr3nt5f8E/FfFLxBefV3lOXS/2eD95r7cl/7aund69jyH9pH4B6Z8cvAzaePKtvEOllrrRb1iQIp9uDG+OWjdSVYe4YYIBH5a6tpGraDqN1o+u6dLYajYytBd2sv34JV4ZD2OM5BHysCGHDCv2oYZGK+Rv22v2cW8VaZJ8XPBOnb9Z02H/icW0KEvfWiZPmKACTLEMkAAllLLgnbhZ3lvt4vEU/iW/mv8zTwn47/sXELJ8fL9xUfut/Zk+n+GX4PXqz4FpKAQQGVlZWAYMpyrAjIIPcEEEHv1or40/qlao2/Bni7XvAnifTvFfhnUHstR02dZ4JAflPYo4/ijYZVh6HI5AI+29V1LUfirpGiftc/s7WsY+IPhaL7B4m8NswB13TUG6fTJSCB5ybvNtpT3wM7ZCa+CvpXp37P3xw1r4H+OYdfthcXekXW231fTo2z59vnh0UnHmxk7lP8Q3JzlcevlGYvBVOSXwPfy8z8v8AEzgaPFOB+s4Vf7TSTa/vLflf6dn6n6dfC/4neE/i74H0vx94MvvtOmanGSAw2ywSqSskEqHmOWNwyOhAKsCDXV59q+SPEt/Z/s5eL2/aa+GyPqnwg8fyQ3PjyxsCZI9LndQsevW0Y4CY2rcqv8IEn8LE/V1hqNlqtnb6jp11Fc2t1Gs0E0bBkkjYZVlI6gggg192mpK62P4/nCVOThNWa6FqiiigkKKKKAP/1f1Srn/iEQvgLxIzEADR70kk4A/cvXQVBfG1FnP9uVGt/LbzQ4ypTHzAjuMZoA/mstbqy+xWinUtPBW0t1IN9CCCIUBBBfIIIIx7VL9psf8AoKad/wCB8H/xdfun4T+L37G3jPUNI0rw7f8AgqWfXn8rSRLpSwR3zgZ2QO8YWRsA8KSa7uPTvgbL43l+HEfhrwwfEcOmrrElj/ZcW9bNpDGsp+XGC4I69jQVzH8+P2mx/wCgpp3/AIHwf/F0fabH/oKad/4Hwf8Axdfv/Befs63PxKuPg/Bpng9/GNrpw1abSBp8PnpaFgvmY24xkrkdeRUU2r/s22/xQg+DE+n+EI/Gl1Zf2jBpDadEJpLfDHevyYIwjH8DQHMfgL9psf8AoKad/wCB8H/xdAubHHOq6av1v4T/ACY1+/fhvU/2cvGHjjxF8OPDOmeEdQ8R+FNn9sWEWmRF7Pfjbv8Alxzn1/kaxbX46fspab4sPhKw1jw1bXi6h/ZJu49KK2C3+/y/shvRH9nE+/5fK8zfnjFAczPxb8IfA34vePrpLPwZ8MvFetSScqbTSJ1iYZAyJ5ljhxz/AH/pX1n8Ff8AglH8U/FUsOqfGXxDaeC9MJDNZWLJfam69cZIMELdQciXHav021b4m/Dvwx430L4Zav4lsNP8R+JoZ5tI02U7HvVhGZPL7MQOcdcCoLr4w/Dix0nxjrl14nt4rHwDPJbeIpmRgunyJCkzK/HOI5EbjIwwoE5M/JP/AIKN/B34ZfAX4k+B/A/w40ex0TTv+EUknneW5UTXtz9rCmeeWRg0spVSNxOcAgcCvkv7VY/9BPTv/A+D/wCLr99NB+LP7Nfxi8WReGbHWPDWt+JDZfareyv7IC7ktAx/eRJMgZ485+ZcjOaxvEXxQ/ZI8Ja5rXh3xDH4Ws73w44j1gHQ98enkxiQefIsZSMbCGyxAwc0D5j8JftNj/0FNO/8D4P/AIuj7TY/9BTTv/A+D/4uv6DtesPgR4Z8FXXxF1vQ/CVt4bsrH+0ZtSawhMK223d5mQvIIIxipvD2ifBLxX4TsPHPh7w54TvdB1KzXULW/j0+AQyW7LuEmSvC7eeaA5j+ev7TY/8AQU07/wAD4P8A4uj7VY/9BPTv/A+D/wCLr92PB/xW/ZC8d+KbLwd4Zfwlc6nqyyPpKyaKIIdWVAWc2U0kax3e1RlvJZ8Dk4robzWf2atPbxgNRtfBlovgARHxI9xYQxppvmReanmMy4GUIYeuRQHMfnd/wT//AGUNK10P+0x8aYYbTwL4bzeaUl8wEOozwncbuTPBtoSuVOSJJBu5CIx2f2kPjpr3xy8avfW8d5b+GdNzHo1k8bKQpyGuZFxxLIOMH7ifKMFnr9BPE7/CHxx8P9F0zxDoj3vhnXwh0/TTp08YnVEMig24UMFCru2soAwOM4rl9L/Zd/Zg1uCW8tfg5poWNyr/AGjT5InJxngPgn6/hXkZphcRjEqVKSUeuur/AOAfpPAGf5RwtVeZZhQnUq7QaS5Yrq1dr3nt5LTqfmN9nuOn2eb/AL9t/hR9nuP+feb/AL9t/hX6Xw/s4fskTWGm6jD8NPD0kOrzrbWZFsxaWY5/d7eoYbW3AjK7WzjBpdb/AGav2UvD91a2eofCXSmuL1JJIYoLCSZmVMbzhAcAbh+deH/q9iFrzx/H/I/XY+NuVylyrDVb69I9N/tH5nmCcZJhkAHJLIQB9SRgD37V9q/sWfsxuj2vxk+IGmBRgS+HrCeP5hkf8fkqno2CRGvBUEseWwvs/hr9mb9lrWEXWND+FuhMbS42sHtWV4ZkIO10bBVh8pwR0I6g16JZfErwbLFbNDdXENpNItvBcSWUsVuWL7FXzCu0At8o5wTgdxXdgMljhqvta8k7bf5nx3GnirWz7APL8opTpqWlRtK9rfCrN2vrd72Vu512Ofp+tOGax/EHijSPDUdrJqssoN5OLa3SGF5Xll2s20KoJPCsfwNSaN4hstdjleziu08pgrC4tZISSRngOATX0nMr2ufhnsqnJ7TlfL3NQnj0qORFdWVzlSMEGuab4jeFkvDaSahIsa3X2Fro27i1Fzu2eV52Nm7fhOv3vl68Vq67r+meH7RLvVZ2RZJVhiREZ5JZW+6iIoJZjgnA7AntS5k+pToVYyScWm9tD88/2x/2dj8LvEf/AAnfhazC+Ftfu9phiTjTr18sUOBgRStkoT0kYrzuUD5s47V+wl9F4L+LHhzWfCeqW631nPGbLUbG5iaOWMOuQHRhuUlSGU/Qg1+Xnxw+Dut/BPx1ceEdUlmu7Z1Nxpl+8eBe2pbAY448xSQsgHfDYAcAfG5zl3sJ+3pL3Xv5M/qXwp45eb4dZLmMv39Ne63vOK/9uj16ta66nntLz+VFJXgn7OfTX7Hvx+tvCGpP8HvH3lXHg/xLJJHA9zgxWd1MfmjYHjyZyxB7LIfR8L7d4B1i4/ZE+JVl8FPF+ru/wp8bX5j+Hep3L/Lol+4LNoM0hPEbYZrYntmP+FRX57lVZWR0V1cFXVhkMpGCD7EHFfbn7PXxD8KftLfDDUf2bfjOv227W0C2FzJNie6gjIMc0b53LdW77G3jk4RwQSQv1WR5l/zDVX6P9P8AI/nPxe4DcXLiDLo6P+LFf+l2/wDSvv7n2urEntTq+ev2efih4y0TxPqP7NXxxukfxv4ahNxoesn5U8V6GCBFepwB56cRzxjowDDAYAfQgJJ9q+oP55FooooA/9b9Uqp60rvpF6kalna2lChepOw4Aq5RQB+c3g+HxV4+/Y7+HH7L+jfCPx5B45spNEW8vtV8N3GnWWhi3vEuJLv7XcKiOURCAsRZyzAYAyR9Ox6drGmftg6x4sutJ1J9Hi+G0MJvFtJGhkmS8d2jVwCrSbedg+bkcV75gUUAfnfo/hH9oTSbzw5+1lc/CqKC/v8Ax03inWbe3num1+XQ75BYLYT2HlYXyLT7NIyh2w8BO3dzXU/tB+BPGMX7Qvjb4/eDPA+s6vrnw88NeFNc8PCG2mC6n5VxqKX9jEVU+ZI1tNzGASCU4yVr7noxQB8Z/sxfCXxh4N+LPi99b0C603VPFfw70zVdW1QxTNA2u3l5fzXUSTvw3kmWMBByqleAMVxy/wDCQxfsef8ADGK/BnxYPiX/AGN/wjIVdCuP7I+1bsDVv7T2fZvKz/pG7f5vGNm/5a+/aMD/ACaAPj34+fAPWfit8dPAGj/8TGzu9E+G+sf2V4rhgkaLRtfiurBrO53jCl9ySHy2YeZH5inKlq4rQdJ+L/ir9mL9rebxx8M9U0fxd4m1HUxFpNtayy/bZl0W0ty9n8u64ikkibYVHPTAOQPveigD4+ub/Uvjv46+B1p4M+HPjDSx8NtaXWNf13X9AuNJjt4Y9Plt2tYTcKrztLJKv+rDR4jJLdAfPfiPp+vQfE79oHw5qWq/GrQ7fxteQQ6WnhDwjJe2mpKdMihJa6+zSrCd5KbvNiAAJyMFq/QPFGKAPjrx7ovxm8X/AAl+BfwSh+FmnWmq3kGn6x4w0s+da6PZW2mRRyfYGuIhKsXmXPkKI/n3Iko+YAkZfhP4b/GTVv2fPj5+yrq3htdJ1aMak/hSaN5pNMuLDVEe4jtobt0UOIpnmhK4BRfLyuCpb7ZxRQB8weGPirZfEC8+G3gHRP2bNebUvD19C+qnxLoEunWvhEQW0iNcW9zJEYribd+6T7M7BllLbtvXxv4g/AP4w+Mfjj8cviT4YTUJIfC3iTQPEeg+E7+xC6R4uurbTYd5lkkGJCoUxxFTtjmVXbJUAfoHiigDxaXxmfiL4c+HPxBjsfFPhSK+lluLu2udLeK/052tJFME8TxtsIf5c4IJAwcEE+ieFtQtJ9LmeHXdR1VYpGLzX1v5Ui/KDtAEaZA65A74zXRFenWl29z1qeX3uY6ZYjnpRptbendvtfr3PIdBsNUsfGEfxDutCnTSfEE7W9vY+UfM0lpDxeMmMq1xtUS90xHnkyGuo8U6XrWoeONBk0q/uLBYrG+Es6W6yKCTFhTu4GcEj1xXa4APIpfepVJWsayx8pVFUaV0nH5Wt+C+/rrqYHhrwwvh2G9kk1G41C+1K6a8u7m4ChpJNqoAFUBVVURVAHpkkkknzS38K+KY/hjpE02tarcQW81tLcaJJbRqJIBcgtCxVPNwqkHrk7AGyCwr2rGaCPSh0k7fP8RUsdUp30Tu09l0v9255/8AFKObz/Ct1He6hYw2+tCSe6sYPNeBDbTjJBRwASwUkqfvdutbng2/t7u3nW38QapqxSQFpL+3ETR5HCgCNARxnoa6M5yMD8aXA6c1SjrzGcsRzUlTa2/zv2/U8Tu7i80yxvYPDiata6o2oSH/AIRW/s/tdpcSNclmZX25SOQEyBxJtTdkqdpWu5+IqWptNJkv7LUvJh1ASf2jpzfv9Mfy3VZ9oBLIdxjYYYYkyQVzjs8A9fpRtHpU8m/mazxvNKMrbX9dbL8Ldb+dzhPh7e6nea1raTXMmq6dElsttq1xYC2mnbD74mICiUJ8pDhVALleSCayf2hfgho3xz8Bz+HLqRbPVLVvtWk34QM1tcqOM9zG4yjrkZVjgg4I9RVQOnej2pToxqU3Tmrpl4fM6+CxkMdhXyTg0015L9eq28rH476t8KfiZo2pXWl3/wAOvFQubSZ4JRBol1cR71ODtkRCrr3DDggg8HIFX/hXvxA/6J54y/8ACbvv/jVfskI07jNHlp/dFfPvhul0m/wP2in475gopSwkG/8AEz8bf+FeeP8A/onnjL/wm77/AONVf0Pwv8VvDOs2HiPQvBfjax1HTrhbq0uYvDd7vimXIDY8vkYJBB4ZWYd8j9g/LT+6KDGuOFpx4chF3jUafoTV8c8XXg6dTBQcXo05Npp79D5g1Lwzefta/CHQvFf9n6p4C+Kngq8XUND1Ce0mt5NO1RE9HCmaznUlXQ8MjkEK6/L7H8E/HPirx54IttR8eeCdQ8J+JrRms9X0y6T92lynDPbyDiWB/vI47HBCsCB3eMDpTlGK+hpxcIKMnd9z8QxdanXrzq0YckW21G97X6JvsLRRRVnOf//X/VKiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKAP/2Q==";
 
 // ── Firebase config (same project as dispatch app) ──
 const firebaseConfig = {
@@ -153,9 +152,6 @@ const T = {
     toastStaged: "Dépense enregistrée ✓",
     toastAllOk: "Dépenses soumises ✓",
     leaveWarn: "Vous avez des dépenses enregistrées mais non soumises. Elles seront perdues si vous quittez.",
-    confirmTitle: "Confirmer la soumission",
-    confirmSubmitBtn: "Soumettre",
-    confirmEditBtn: "Modifier",
     backToHours: "← Retour aux heures",
     summaryTitle: "Mon résumé",
     summarySub: (e) => `Vos soumissions pour ${e}.`,
@@ -250,9 +246,6 @@ const T = {
     toastStaged: "Expense saved ✓",
     toastAllOk: "Expenses submitted ✓",
     leaveWarn: "You have saved expenses that haven't been submitted. They'll be lost if you leave.",
-    confirmTitle: "Confirm submission",
-    confirmSubmitBtn: "Submit",
-    confirmEditBtn: "Edit",
     backToHours: "← Back to hours",
     summaryTitle: "My summary",
     summarySub: (e) => `Your submissions for ${e}.`,
@@ -384,8 +377,8 @@ function LangBtn({ active, onClick, label, C }) {
   return <button onClick={onClick} style={{ background:active?C.red:"transparent", border:`1px solid ${active?C.red:"#444"}`, color:active?"#fff":"#888", fontFamily:"'DM Mono',monospace", fontSize:11, fontWeight:600, padding:"3px 9px", borderRadius:4, cursor:"pointer" }}>{label}</button>;
 }
 
-function StepTab({ label, icon, active, done, onClick, C }) {
-  return <button onClick={onClick} style={{ flex:"1 1 0", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:3, padding:"9px 6px", fontSize:10, fontWeight:600, color:active?"#fff":"#94a3b8", background:active?"rgba(255,255,255,0.08)":"transparent", border:"none", borderBottom:`2.5px solid ${active?C.red:"transparent"}`, cursor:"pointer", textTransform:"uppercase", fontFamily:"'DM Sans',sans-serif", whiteSpace:"nowrap", letterSpacing:"0.02em" }}>{icon&&<span style={{fontSize:17,lineHeight:1}}>{icon}</span>}<span>{label}</span></button>;
+function StepTab({ label, active, done, onClick, C }) {
+  return <button onClick={onClick} style={{ flex:"0 0 auto", padding:"12px 10px", fontSize:10, fontWeight:600, color:active?C.black:done?C.red:C.gray, background:active?C.white:"transparent", border:"none", borderBottom:`2.5px solid ${active?C.red:"transparent"}`, cursor:"pointer", textTransform:"uppercase", fontFamily:"'DM Sans',sans-serif", whiteSpace:"nowrap", letterSpacing:"0.03em" }}>{label}</button>;
 }
 
 function Field({ label, children, note, required, C, S }) {
@@ -520,13 +513,12 @@ export default function TimesheetApp() {
   const [dayType,setDayType]=useState("working");
   const [showNwPanel,setShowNwPanel]=useState(false);
   const [eventAllowsNw,setEventAllowsNw]=useState(false);
-  const [eventAllowsTravel,setEventAllowsTravel]=useState(false);
   const [eventAllowsPerDiem,setEventAllowsPerDiem]=useState(false);
   const [eventAllowsHours,setEventAllowsHours]=useState(true);
   const [eventAllowsDaily,setEventAllowsDaily]=useState(false);
   // When an event allows BOTH hours and day-logging, the driver picks which to
   // use for this entry. "hours" = clock in/out; "day" = working/NW/per-diem UI.
-  const [logMode,setLogMode]=useState("none"); // "none" = undecided (both shown), "hours", "day"
+  const [logMode,setLogMode]=useState("hours");
   const [eventAllowsExpenses,setEventAllowsExpenses]=useState(true);
   const [eventAllowsTrips,setEventAllowsTrips]=useState(false);
   const [logBreak,setLogBreak]=useState("");
@@ -538,7 +530,7 @@ export default function TimesheetApp() {
   const [gpsIn,setGpsIn]=useState(null);
   const [gpsOut,setGpsOut]=useState(null);
   const [clockedIn,setClockedIn]=useState(()=>!!localStorage.getItem("cargodx_clockin_start"));
-  const [shiftEvent,setShiftEvent]=useState(""); // always start blank — employee must choose the event each time
+  const [shiftEvent,setShiftEvent]=useState(()=>localStorage.getItem("cargodx_clockin_event")||"");
   const [allEvents,setAllEvents]=useState([]);
   // Optional sub-event (e.g. "May Concert", "Week 32"). subEventOptions holds the
   // selected event's list; shiftSubEvent is the employee's choice. Only shown
@@ -575,9 +567,6 @@ export default function TimesheetApp() {
   // (File objects can't be persisted) — the whole staged expense survives a reload.
   const [stagedExpenses,setStagedExpenses]=useState(()=>{ try{return JSON.parse(localStorage.getItem("cargodx_staged_exp")||"[]");}catch{return [];} });
   useEffect(()=>{ try{localStorage.setItem("cargodx_staged_exp",JSON.stringify(stagedExpenses));}catch{} },[stagedExpenses]);
-  // Confirm-before-submit modal. Holds { title, lines:[...], onConfirm } or null.
-  // Each submit action opens this with a summary; "Submit" runs onConfirm, "Edit" closes.
-  const [confirmSubmit,setConfirmSubmit]=useState(null);
 
   const [submitting,setSubmitting]=useState(false);
   const [toast,setToast]=useState({show:false,msg:"",error:false});
@@ -587,26 +576,9 @@ export default function TimesheetApp() {
   const showToast = (msg,error=false) => { setToast({show:true,msg,error}); setTimeout(()=>setToast(p=>({...p,show:false})),3000); };
   const mins = logStart&&logEnd ? calcMins(logStart,logEnd) : 0;
 
-  // ── Locked-event guard for ALL new entries / clock-in ──
-  // When an admin locks an event in dispatch (event.locked === true), employees can no
-  // longer add entries or clock in from the app — only the admin can, from dispatch.
-  // Returns true (and shows a contact-admin popup) when the event is locked, so callers
-  // can `if(blockIfLocked(ev)) return;` at the top of every save path.
-  const blockIfLocked = (evName) => {
-    const ev = allEvents.find(a=>a.name===evName);
-    if(ev && ev.locked) {
-      alert(lang==="fr"
-        ? "Cet événement est verrouillé. Vous ne pouvez pas ajouter d'entrée ni pointer. Veuillez contacter l'administrateur pour qu'il déverrouille l'événement."
-        : "This event is locked. You can't add an entry or clock in. Please contact the administrator to have the event unlocked.");
-      return true;
-    }
-    return false;
-  };
-
   // ── Clock in — sets start time + captures GPS silently ──
   const handleClockIn = async () => {
     if(!shiftEvent) { alert(lang==="fr"?"Veuillez sélectionner un événement avant de pointer.":"Please select an event before clocking in."); return; }
-    if(blockIfLocked(shiftEvent||employee?.event)) return;
     setGpsLoading("in");
     const time = nowTime();
     const date = today();
@@ -658,7 +630,6 @@ export default function TimesheetApp() {
   };
 
   const handleClockOut = async (manualTime) => {
-    if(blockIfLocked(shiftEvent||employee?.event)) return;
     // Manual time (from the manual panel) or a previous-day entry must NOT be
     // overwritten with the current time, and must NOT capture live GPS (which
     // would be today's location for a past shift). Only a live "Right Now"
@@ -770,7 +741,7 @@ export default function TimesheetApp() {
             else { setLogKmStart(""); localStorage.removeItem("cargodx_clockin_kmstart"); }
             if(s.kmEnd!=null) { setLogKmEnd(String(s.kmEnd)); localStorage.setItem("cargodx_clockin_kmend",String(s.kmEnd)); }
             else { setLogKmEnd(""); localStorage.removeItem("cargodx_clockin_kmend"); }
-            if(s.event) { setShiftEvent(s.event); localStorage.setItem("cargodx_clockin_event",s.event); const evObj=allEvents.find(a=>a.name===s.event); if(evObj){ setEventAllowsNw(!!evObj.allowNwDays); setEventAllowsTravel(!!evObj.allowTravelDays); setEventAllowsPerDiem(!!evObj.allowPerDiem); setEventAllowsHours(evObj.allowHours!==false); setEventAllowsDaily(!!evObj.allowDaily); setEventAllowsExpenses(evObj.allowExpenses!==false); setEventAllowsTrips(!!evObj.allowTrips); setSubEventOptions((Array.isArray(evObj.subEvents)?evObj.subEvents:[]).filter(x=>!(evObj.archivedSubEvents||[]).includes(x))); } }
+            if(s.event) { setShiftEvent(s.event); localStorage.setItem("cargodx_clockin_event",s.event); }
             else { setShiftEvent(""); localStorage.removeItem("cargodx_clockin_event"); }
             if(s.unitLog?.length>0) { setUnitLog(s.unitLog); localStorage.setItem("cargodx_unitlog",JSON.stringify(s.unitLog)); }
             else { setUnitLog([]); localStorage.removeItem("cargodx_unitlog"); }
@@ -791,8 +762,8 @@ export default function TimesheetApp() {
       const dailyOps = "Daily Operations";
       const withoutDaily = loaded.filter(e=>e!==dailyOps&&e!=="Opérations quotidiennes");
       setEvents([dailyOps, ...withoutDaily]);
-      // Event starts blank each time (employee chooses fresh); don't pre-load
-      // allow-flags from a previous session — they set when the event is picked.
+      const cur = localStorage.getItem("cargodx_clockin_event");
+      if(cur) { const evObj=docs.find(a=>a.name===cur); setEventAllowsNw(!!(evObj?.allowNwDays)); setEventAllowsPerDiem(!!(evObj?.allowPerDiem)); setEventAllowsHours(evObj?.allowHours!==false); setEventAllowsDaily(!!(evObj?.allowDaily)); setEventAllowsExpenses(evObj?.allowExpenses!==false); setEventAllowsTrips(!!(evObj?.allowTrips)); setSubEventOptions((Array.isArray(evObj?.subEvents)?evObj.subEvents:[]).filter(s=>!(evObj?.archivedSubEvents||[]).includes(s))); }
       }, e=>{console.error("Events error:",e);setEvents(["Daily Operations"]);});
     });
     return () => unsubEvents();
@@ -1395,48 +1366,8 @@ export default function TimesheetApp() {
     } catch(e) { return false; }
   };
 
-  // Submit the staged day-entries list (Working / NW / Per Diem / Trip).
-  const submitPendingEntries = async () => {
-    if(!employee){alert(lang==="fr"?"Veuillez vous identifier d'abord.":"Please register first.");return;}
-    if(!shiftEvent){alert(lang==="fr"?"Veuillez sélectionner un événement.":"Please select an event.");return;}
-    if(blockIfLocked(shiftEvent||employee?.event)) return;
-    setSubmitting(true);
-    try {
-      const entryDate = logDate||today();
-      if(isFutureDate(entryDate)) { alert(lang==="fr"?`La date (${entryDate}) est dans le futur. Vous ne pouvez pas enregistrer pour une date future.`:`The date (${entryDate}) is in the future. You cannot register for a future date.`); setSubmitting(false); return; }
-      for(const entry of pendingEntries) {
-        if(entry.type==="working-day") {
-          if(await hasDayEntry("working-day")){showToast(lang==="fr"?"Journée déjà enregistrée":"Already registered",true);continue;}
-          if(await hasDayEntry("non-working")){showToast(lang==="fr"?"Jour non travaillé existe déjà":"Non-working day exists",true);continue;}
-          if(await hasDayEntry("travel-day")){showToast(lang==="fr"?"Jour de déplacement existe déjà":"Traveling day exists",true);continue;}
-          await addDoc(collection(db,"timesheets"),{employeeName:employee.name,employeePhone:employee.phone,employeeEmail:employee.email,event:shiftEvent||employee.event,subEvent:shiftSubEvent||null,date:entryDate,notes:logNotes.trim()||null,dayType:"working-day",numDays:1,submittedAt:new Date().toISOString()});
-        } else if(entry.type==="non-working") {
-          if(await hasDayEntry("non-working")){showToast(lang==="fr"?"Déjà enregistré":"Already registered",true);continue;}
-          if(await hasDayEntry("working-day")){showToast(lang==="fr"?"Journée de travail existe déjà":"Working day exists",true);continue;}
-          if(await hasDayEntry("travel-day")){showToast(lang==="fr"?"Jour de déplacement existe déjà":"Traveling day exists",true);continue;}
-          await addDoc(collection(db,"timesheets"),{employeeName:employee.name,employeePhone:employee.phone,employeeEmail:employee.email,event:shiftEvent||employee.event,subEvent:shiftSubEvent||null,date:entryDate,notes:logNotes.trim()||null,dayType:"non-working",submittedAt:new Date().toISOString()});
-        } else if(entry.type==="travel-day") {
-          if(await hasDayEntry("travel-day")){showToast(lang==="fr"?"Jour de déplacement déjà enregistré":"Traveling day already registered",true);continue;}
-          if(await hasDayEntry("working-day")){showToast(lang==="fr"?"Journée de travail existe déjà":"Working day exists",true);continue;}
-          if(await hasDayEntry("non-working")){showToast(lang==="fr"?"Jour non travaillé existe déjà":"Non-working day exists",true);continue;}
-          await addDoc(collection(db,"timesheets"),{employeeName:employee.name,employeePhone:employee.phone,employeeEmail:employee.email,event:shiftEvent||employee.event,subEvent:shiftSubEvent||null,date:entryDate,notes:logNotes.trim()||null,dayType:"travel-day",numTravelDays:1,submittedAt:new Date().toISOString()});
-        } else if(entry.type==="per-diem") {
-          if(await hasDayEntry("per-diem")){showToast(lang==="fr"?"Per diem déjà enregistré":"Per diem already registered",true);continue;}
-          await addDoc(collection(db,"timesheets"),{employeeName:employee.name,employeePhone:employee.phone,employeeEmail:employee.email,event:shiftEvent||employee.event,subEvent:shiftSubEvent||null,date:entryDate,notes:logNotes.trim()||null,dayType:"per-diem",numPerDiem:1,submittedAt:new Date().toISOString()});
-        } else if(entry.type==="trip") {
-          await addDoc(collection(db,"timesheets"),{employeeName:employee.name,employeePhone:employee.phone,employeeEmail:employee.email,event:shiftEvent||employee.event,subEvent:shiftSubEvent||null,date:entryDate,notes:logNotes.trim()||null,dayType:"trip",numTrips:parseInt(tripCount)||1,submittedAt:new Date().toISOString()});
-        }
-      }
-      setPendingEntries([]);
-      setLogNotes("");
-      showToast(lang==="fr"?"Soumis avec succès ✓":"Submitted successfully ✓");
-    } catch(e){console.error(e);showToast(lang==="fr"?"Erreur":"Error",true);}
-    setSubmitting(false);
-  };
-
   const submitNwDay = async () => {
     if(!employee) { alert(t("alertReg")); return; }
-    if(blockIfLocked(shiftEvent||employee?.event)) return;
     if(isFutureDate(logDate)) { alert(lang==="fr"?`La date (${logDate}) est dans le futur. Vous ne pouvez pas enregistrer un jour pour une date future.`:`The date (${logDate}) is in the future. You cannot register a day for a future date.`); return; }
     if(await hasDayEntry("non-working")) { alert(lang==="fr"?"Journée non travaillée déjà enregistrée pour cette date.":"Non-working day already registered for this date."); return; }
     if(await hasDayEntry("working-day")) { alert(lang==="fr"?"Une journée de travail existe déjà pour cette date.":"A working day already exists for this date."); return; }
@@ -1458,7 +1389,6 @@ export default function TimesheetApp() {
 
   const submitPerDiem = async () => {
     if(!employee) { alert(t("alertReg")); return; }
-    if(blockIfLocked(shiftEvent||employee?.event)) return;
     if(isFutureDate(logDate)) { alert(lang==="fr"?`La date (${logDate}) est dans le futur. Vous ne pouvez pas enregistrer un jour pour une date future.`:`The date (${logDate}) is in the future. You cannot register a day for a future date.`); return; }
     if(await hasDayEntry("per-diem")) { alert(lang==="fr"?"Per diem déjà enregistré pour cette date.":"Per diem already registered for this date."); return; }
     if(!shiftEvent) { alert(lang==="fr"?"Veuillez sélectionner un événement.":"Please select an event."); return; }
@@ -1477,7 +1407,6 @@ export default function TimesheetApp() {
 
   const submitTrip = async () => {
     if(!employee) { alert(t("alertReg")); return; }
-    if(blockIfLocked(shiftEvent||employee?.event)) return;
     if(!shiftEvent) { alert(lang==="fr"?"Veuillez sélectionner un événement.":"Please select an event."); return; }
     const tripCount = prompt(lang==="fr"?"Combien de trajets avez-vous fait aujourd'hui?":"How many trips did you make today?", "1");
     if(!tripCount || isNaN(tripCount) || parseInt(tripCount) <= 0) return;
@@ -1495,7 +1424,6 @@ export default function TimesheetApp() {
 
   const submitWorkDay = async () => {
     if(!employee) { alert(t("alertReg")); return; }
-    if(blockIfLocked(shiftEvent||employee?.event)) return;
     if(isFutureDate(logDate)) { alert(lang==="fr"?`La date (${logDate}) est dans le futur. Vous ne pouvez pas enregistrer un jour pour une date future.`:`The date (${logDate}) is in the future. You cannot register a day for a future date.`); return; }
     if(await hasDayEntry("working-day")) { alert(lang==="fr"?"Journée de travail déjà enregistrée pour cette date.":"Working day already registered for this date."); return; }
     if(await hasDayEntry("non-working")) { alert(lang==="fr"?"Une journée non travaillée existe déjà pour cette date.":"A non-working day already exists for this date."); return; }
@@ -1517,7 +1445,6 @@ export default function TimesheetApp() {
   const submitDay = async () => {
     if(!employee){alert(t("alertFill"));goTab(1);return;}
     if(!logDate||!logStart||!logEnd){alert(t("alertFill"));return;}
-    if(blockIfLocked(shiftEvent||employee?.event)) return;
     // Always use clock-in date — never today() for overnight shifts
     const entryDate = localStorage.getItem("cargodx_clockin_date") || logDate;
     if(isFutureDate(entryDate)) { alert(lang==="fr"?`La date (${entryDate}) est dans le futur. Vous ne pouvez pas enregistrer des heures pour une date future.`:`The date (${entryDate}) is in the future. You cannot log hours for a future date.`); return; }
@@ -1532,10 +1459,8 @@ export default function TimesheetApp() {
         const daySnap = await getDocs(query(collection(db,"timesheets"), where("employeeEmail","==",employee.email), where("date","==",entryDate)));
         const hasWorkingDay = daySnap.docs.some(d => { const e=d.data(); return (parseFloat(e.numDays)||0)>0 || e.dayType==="working-day"; });
         const hasNonWorking = daySnap.docs.some(d => { const e=d.data(); return (parseFloat(e.numNwDays)||0)>0 || e.dayType==="non-working"; });
-        const hasTravelDay = daySnap.docs.some(d => { const e=d.data(); return (parseFloat(e.numTravelDays)||0)>0 || e.dayType==="travel-day"; });
         if(hasWorkingDay) { alert(lang==="fr"?`Conflit : une journée de travail existe déjà pour le ${entryDate}. Les heures et les journées de travail ne peuvent pas coexister.`:`Conflict: a working day entry already exists for ${entryDate}. Hours and working day entries cannot coexist.`); setSubmitting(false); return; }
         if(hasNonWorking) { alert(lang==="fr"?`Conflit : un jour non travaillé existe déjà pour le ${entryDate}. Les heures et les jours non travaillés ne peuvent pas coexister.`:`Conflict: a non-working day already exists for ${entryDate}. Hours and non-working day entries cannot coexist.`); setSubmitting(false); return; }
-        if(hasTravelDay) { alert(lang==="fr"?`Conflit : un jour de déplacement existe déjà pour le ${entryDate}. Les heures et les jours de déplacement ne peuvent pas coexister.`:`Conflict: a traveling day already exists for ${entryDate}. Hours and traveling day entries cannot coexist.`); setSubmitting(false); return; }
       } catch(dayErr) { console.warn("day-type conflict check failed:", dayErr); }
       // ── Overlap / duplicate prevention ──
       // Blocks genuine time conflicts (no "save anyway" override), including
@@ -1625,9 +1550,7 @@ export default function TimesheetApp() {
   // Validate the current form. Returns the plain fields (no File) or null.
   const validateExpense = () => {
     if(!employee){alert(t("alertFill"));goTab(1);return null;}
-    if(blockIfLocked(expEvent||employee.event)) return null;
     if(!expDate||!expType||!expAmount||!expDesc.trim()){alert(t("alertFill"));return null;}
-    if(expDate>today()){alert(lang==="fr"?"Vous ne pouvez pas soumettre une dépense pour une date future.":"You can't submit an expense for a future date.");return null;}
     if(!expFile){alert(t("alertFile"));return null;}
     return {
       _tmpId: Date.now()+"_"+Math.random().toString(36).slice(2,7),
@@ -1709,10 +1632,6 @@ export default function TimesheetApp() {
   const submitAll = async () => {
     let toSend = [...stagedExpenses];
     const formHasData = expType||expAmount||expDesc.trim()||expFile;
-    // An event may have been locked after items were staged — block the whole submit
-    // if any staged expense belongs to a now-locked event.
-    const lockedStaged = toSend.find(x=>blockIfLocked(x.event));
-    if(lockedStaged) return;
     setSubmitting(true);
     try {
       if(formHasData){
@@ -1736,8 +1655,7 @@ export default function TimesheetApp() {
   // (Staged expenses now persist to localStorage and survive a refresh, so no
   // beforeunload warning is needed — and iOS Safari ignores it for pull-to-refresh anyway.)
 
-  const [summaryDays, setSummaryDays] = useState(14); // 14 or 30 day window
-  const [expandedDays, setExpandedDays] = useState({}); // grouped-day expand state
+  const [summaryDays, setSummaryDays] = useState(7); // filter last N days
   // Reload summary data whenever tab 4 is opened
   useEffect(()=>{ if(tab===4 && employee) loadData(); },[tab, employee]);
   useEffect(()=>{ if(tab===6) loadEquipment(); },[tab]);
@@ -1770,10 +1688,6 @@ export default function TimesheetApp() {
 
   useEffect(() => {
     if (!employee) return;
-    // While an employee is clocked in, never auto-logoff — long shifts (16h+) must not
-    // be interrupted, and the phone may sit untouched for hours mid-shift. The idle
-    // timer resumes automatically once they clock out (clockedIn is a dependency).
-    if (clockedIn) return;
     const TIMEOUT_MS = 12 * 60 * 60 * 1000; // 12 hours
     let timer = null;
     const reset = () => {
@@ -1791,95 +1705,9 @@ export default function TimesheetApp() {
       if (timer) clearTimeout(timer);
       events.forEach(e => window.removeEventListener(e, reset));
     };
-  }, [employee, clockedIn]);
+  }, [employee]);
   const cutoff = new Date(); cutoff.setDate(cutoff.getDate() - summaryDays);
   const filteredLogs = summaryDays === 0 ? logs : logs.filter(l => l.date && new Date(l.date+"T12:00:00") >= cutoff);
-  // Is the event this entry/expense belongs to locked by dispatch? Locked = read-only.
-  const isEventLocked = (evName) => { const ev = allEvents.find(a=>a.name===evName); return !!(ev && ev.locked); };
-  const [editEntry, setEditEntry] = useState(null);   // entry being edited (or null)
-  const [editExpense, setEditExpense] = useState(null); // expense being edited (or null)
-  // Save an edited entry back to Firestore, stamping manuallyEdited so dispatch flags it.
-  const saveEditedEntry = async () => {
-    const l = editEntry; if(!l) return;
-    if(isEventLocked(l.event)) { showToast(lang==="fr"?"Événement verrouillé":"Event locked",true); return; }
-    try {
-      const calcH = (s,e)=>{ if(!s||!e) return 0; const [sh,sm]=s.split(":").map(Number); const [eh,em]=e.split(":").map(Number); let m=(eh*60+em)-(sh*60+sm); if(m<=0) m+=24*60; return m/60; };
-      const patch = {
-        date: l.date, notes: (l.notes||"").trim()||null,
-        dayType: l.dayType||null,
-        startTime: l.startTime||null, endTime: l.endTime||null,
-        hours: (l.startTime&&l.endTime)?+(calcH(l.startTime,l.endTime)).toFixed(2):(l.hours||0),
-        numDays: l.dayType==="working-day"?(parseFloat(l.numDays)||1):(parseFloat(l.numDays)||0),
-        numNwDays: l.dayType==="non-working"?(parseFloat(l.numNwDays)||1):(parseFloat(l.numNwDays)||0),
-        numPerDiem: l.dayType==="per-diem"?(parseFloat(l.numPerDiem)||1):(parseFloat(l.numPerDiem)||0),
-        manuallyEdited:true, editedAt:new Date().toISOString(),
-      };
-      Object.keys(patch).forEach(k=>{ if(patch[k]===undefined) delete patch[k]; });
-      await updateDoc(doc(db,"timesheets",l.id), patch);
-      setLogs(prev=>prev.map(x=>x.id===l.id?{...x,...patch}:x));
-      setEditEntry(null); showToast(lang==="fr"?"Entrée modifiée":"Entry updated");
-    } catch(e){ console.error(e); showToast(lang==="fr"?"Erreur":"Error",true); }
-  };
-  const saveEditedExpense = async () => {
-    const x = editExpense; if(!x) return;
-    if(isEventLocked(x.event)) { showToast(lang==="fr"?"Événement verrouillé":"Event locked",true); return; }
-    try {
-      const patch = { type:x.type||"", description:(x.description||"").trim(), amount:parseFloat(x.amount)||0, currency:x.currency||"CAD", manuallyEdited:true, editedAt:new Date().toISOString() };
-      // Recompute CAD if USD and we have a stored rate; else clear amountCad so dispatch reconverts.
-      if((x.currency||"CAD")==="USD") { if(typeof x.fxRate==="number") patch.amountCad=+((parseFloat(x.amount)||0)*x.fxRate).toFixed(2); }
-      else { patch.amountCad=null; }
-      await updateDoc(doc(db,"expenses",x.id), patch);
-      setExpenses(prev=>prev.map(e=>e.id===x.id?{...e,...patch}:e));
-      setEditExpense(null); showToast(lang==="fr"?"Dépense modifiée":"Expense updated");
-    } catch(e){ console.error(e); showToast(lang==="fr"?"Erreur":"Error",true); }
-  };
-  // Delete one of the employee's own entries (only if its event isn't locked).
-  const deleteMyEntry = async (l) => {
-    if(isEventLocked(l.event)) { showToast(lang==="fr"?"Événement verrouillé — modification impossible":"Event locked — can't change",true); return; }
-    if(!window.confirm(lang==="fr"?"Supprimer cette entrée ?":"Delete this entry?")) return;
-    try { await deleteDoc(doc(db,"timesheets",l.id)); setLogs(prev=>prev.filter(x=>x.id!==l.id)); showToast(lang==="fr"?"Entrée supprimée":"Entry deleted"); }
-    catch(e){ console.error(e); showToast(lang==="fr"?"Erreur":"Error",true); }
-  };
-  const deleteMyExpense = async (x) => {
-    if(isEventLocked(x.event)) { showToast(lang==="fr"?"Événement verrouillé — modification impossible":"Event locked — can't change",true); return; }
-    if(!window.confirm(lang==="fr"?"Supprimer cette dépense ?":"Delete this expense?")) return;
-    try { await deleteDoc(doc(db,"expenses",x.id)); setExpenses(prev=>prev.filter(e=>e.id!==x.id)); showToast(lang==="fr"?"Dépense supprimée":"Expense deleted"); }
-    catch(e){ console.error(e); showToast(lang==="fr"?"Erreur":"Error",true); }
-  };
-  // Event acknowledgment: employee reviews their sheet and confirms it's complete.
-  // Sends no new data — entries already save live. Records name + timestamp so
-  // dispatch knows this employee has reviewed & acknowledged their event.
-  // Per-event: an employee may have entries across more than one event in the
-  // window, and each event is reviewed & confirmed separately. ackMap is keyed
-  // by event name → the acknowledgment doc (or absent if not yet confirmed).
-  const [ackMap, setAckMap] = useState({}); // { [eventName]: ackDoc }
-  // All events this employee has entries/expenses for (from raw state, so this is
-  // stable regardless of the 14/30-day filter — we subscribe to every one).
-  const ackEventList = [...new Set([
-    ...logs.map(l=>l.event).filter(Boolean),
-    ...expenses.map(e=>e.event).filter(Boolean),
-    shiftEvent, employee?.event,
-  ].filter(Boolean))];
-  const ackEventKey = ackEventList.join("|"); // stable dep for the effect
-  useEffect(()=>{
-    if(!employee?.email || ackEventList.length===0) { setAckMap({}); return; }
-    const unsubs = ackEventList.map(evName=>{
-      const id = `${evName}__${employee.email}`.replace(/[/#]/g,"_");
-      return onSnapshot(doc(db,"acknowledgments",id),
-        s=>setAckMap(prev=>({...prev, [evName]: s.exists()?s.data():null})),
-        ()=>{});
-    });
-    return ()=>unsubs.forEach(u=>u());
-  },[employee?.email, ackEventKey]);
-  const acknowledgeEventNamed = async (evName) => {
-    if(!employee?.email || !evName) return;
-    if(!window.confirm(lang==="fr"?`Confirmez-vous que toutes vos entrées pour « ${evName} » sont exactes et complètes ?`:`Do you confirm that all your entries for "${evName}" are correct and complete?`)) return;
-    const id = `${evName}__${employee.email}`.replace(/[/#]/g,"_");
-    try {
-      await setDoc(doc(db,"acknowledgments",id), { employeeName:employee.name, employeeEmail:employee.email, event:evName, acknowledgedAt:new Date().toISOString() });
-      showToast(lang==="fr"?"Événement confirmé ✓":"Event acknowledged ✓");
-    } catch(e){ console.error(e); showToast(lang==="fr"?"Erreur":"Error",true); }
-  };
   const filteredExpenses = summaryDays === 0 ? expenses : expenses.filter(e => e.date && new Date(e.date+"T12:00:00") >= cutoff);
   const totalHours=filteredLogs.reduce((a,l)=>a+(l.hours||0),0);
   // Pay amounts — computed from THIS employee's payCfg (rates set in dispatch).
@@ -1889,55 +1717,22 @@ export default function TimesheetApp() {
   const _paySym = _pc.currency==="USD" ? "US$" : "$";
   const _num = (v)=>{ const n=parseFloat(v); return isNaN(n)?0:n; };
   const entryAmount = (l) => {
-    // Match dispatch's counting exactly: recognize a working day by dayType
-    // ("working-day" or legacy "working") OR by numDays>0; same idea for NW / per-diem.
-    const isWD = l.dayType==="working-day" || l.dayType==="working" || (_num(l.numDays)>0);
-    const isNW = l.dayType==="non-working" || (_num(l.numNwDays)>0);
-    const isTravel = l.dayType==="travel-day" || (_num(l.numTravelDays)>0);
-    const isPD = l.dayType==="per-diem" || (_num(l.numPerDiem)>0);
-    const isTrip = l.dayType==="trip" || (_num(l.numTrips)>0);
-    if(isWD) { const r=_num(l.dayRateOverride)||_num(_pc.workDay)||_num(_pc.dayRate); return r>0 ? r*(_num(l.numDays)||1) : null; }
-    if(isNW) { const r=_num(l.nwDayRateOverride)||_num(_pc.nonWorkDay); return r>0 ? r*(_num(l.numNwDays)||1) : null; }
-    if(isTravel) { const r=_num(l.travelDayRateOverride)||_num(_pc.travelDay)||_num(_pc.nonWorkDay); return r>0 ? r*(_num(l.numTravelDays)||1) : null; }
-    if(isPD) { const r=_num(l.perDiemRateOverride)||_num(_pc.perDiem); return r>0 ? r*(_num(l.numPerDiem)||1) : null; }
-    if(isTrip) { const r=_num(l.tripRateOverride)||_num(_pc.tripRate); return r>0 ? r*(_num(l.numTrips)||1) : null; }
+    // An explicit per-entry override always wins.
+    if(l.dayType==="working-day") { const r=_num(l.dayRateOverride)||_num(_pc.workDay)||_num(_pc.dayRate); return r>0 ? r*(_num(l.numDays)||1) : null; }
+    if(l.dayType==="non-working") { const r=_num(_pc.nonWorkDay); return r>0 ? r : null; }
+    if(l.dayType==="per-diem")    { const r=_num(l.perDiemRateOverride)||_num(_pc.perDiem); return r>0 ? r*(_num(l.numPerDiem)||1) : null; }
+    if(l.dayType==="trip")        { const r=_num(l.tripRateOverride)||_num(_pc.tripRate); return r>0 ? r*(_num(l.numTrips)||1) : null; }
     // A clocked shift: hours × hourly rate.
     const r=_num(_pc.hourly); return r>0 ? r*(_num(l.hours)) : null;
   };
-  // CAD value of a standalone expense (USD converts via stored amountCad; CAD as-is).
-  const expenseCad = (e) => {
-    const raw = _num(e.amount);
-    if(raw<=0) return 0;
-    if((e.currency||"CAD")==="USD") return typeof e.amountCad==="number" ? e.amountCad : raw;
-    return raw;
-  };
-  const hasAnyRates = _num(_pc.hourly)>0 || _num(_pc.workDay)>0 || _num(_pc.nonWorkDay)>0 || _num(_pc.travelDay)>0 || _num(_pc.perDiem)>0 || _num(_pc.tripRate)>0 || _num(_pc.dayRate)>0;
-  const dayPay = hasAnyRates ? filteredLogs.reduce((a,l)=>a+(entryAmount(l)||0),0) : 0;
-  const expTotal = filteredExpenses.filter(e=>e.status!=="rejected").reduce((a,e)=>a+expenseCad(e),0);
-  const totalEventPay = hasAnyRates ? (dayPay + expTotal) : null;
-  // ── Per-event breakdown (multi-event windows) ──
-  // When the filtered window spans more than one event, employees need to see and
-  // finalize each event separately. Build the distinct event list and each event's
-  // own pay total (day pay + non-rejected expenses), so the Summary can show a
-  // per-event totals strip and a finalize button per event.
-  const eventsInWindow = [...new Set([
-    ...filteredLogs.map(l=>l.event).filter(Boolean),
-    ...filteredExpenses.filter(e=>e.status!=="rejected").map(e=>e.event).filter(Boolean),
-  ])];
-  const isMultiEvent = eventsInWindow.length > 1;
-  const payForEvent = (evName) => {
-    if(!hasAnyRates) return null;
-    const dp = filteredLogs.filter(l=>l.event===evName).reduce((a,l)=>a+(entryAmount(l)||0),0);
-    const ep = filteredExpenses.filter(e=>e.status!=="rejected" && e.event===evName).reduce((a,e)=>a+expenseCad(e),0);
-    return dp + ep;
-  };
+  const hasAnyRates = _num(_pc.hourly)>0 || _num(_pc.workDay)>0 || _num(_pc.nonWorkDay)>0 || _num(_pc.perDiem)>0 || _num(_pc.tripRate)>0 || _num(_pc.dayRate)>0;
+  const totalEventPay = hasAnyRates ? filteredLogs.reduce((a,l)=>a+(entryAmount(l)||0),0) : null;
   const EmpTag = ()=>employee?<div style={S.empTag}><div style={S.empDot}/>{employee.name}&nbsp;·&nbsp;{employee.event}</div>:null;
 
   return (
     <div style={S.app}>
-      {/* Header — normal (scrolling) version, shown on the login screen and restricted views.
-          When logged in on a log tab, the fixed header+nav zone below renders instead. */}
-      {!(employee && !employee.logRestricted && tab<=4) && <div style={S.header}>
+      {/* Header */}
+      <div style={S.header}>
         <img src="data:image/jpeg;base64,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" alt="DBX" style={{height:44,objectFit:"contain"}}/>
         <div style={S.headerRight}>
           <div style={{display:"flex",gap:6,alignItems:"center"}}>
@@ -1950,37 +1745,16 @@ export default function TimesheetApp() {
           </div>
           <div style={S.portalLabel}>{t("portalLabel")}</div>
         </div>
+      </div>
+
+      {/* Mini step indicator — only shown on log tabs 1-4 when registered and not log-restricted */}
+      {employee && !employee.logRestricted && tab<=4&&<div style={{display:"flex",background:C.surface,borderBottom:`1px solid ${C.border}`,overflowX:"auto",WebkitOverflowScrolling:"touch",scrollbarWidth:"none"}}>
+        {!employee && <StepTab label={t("step1")} active={tab===1} done={tab>1} onClick={()=>goTab(1)} C={C}/>}
+        <StepTab label={`1. ${t("navDaily")}`} active={tab===2} done={tab>2} onClick={()=>goTab(2)} C={C}/>
+        {!(employee && employee.driverLog) && <StepTab label={`2. ${t("navExpenses")}`} active={tab===3} done={tab>3} onClick={()=>goTab(3)} C={C}/>}
+        {!(employee && employee.driverLog) && <StepTab label={`3. ${t("navSummary")}`} active={tab===4} done={false} onClick={()=>goTab(4)} C={C}/>}
+        {employee && <StepTab label={`${(employee && employee.driverLog)?"2":"4"}. ${t("navLogout")}`} active={false} done={false} onClick={doLogout} C={C}/>}
       </div>}
-
-      {/* Fixed top zone: header (logo + FR/EN + theme) AND the nav, stacked, both always
-          visible while scrolling. Only fixed once logged in and on a log tab; otherwise the
-          header renders normally (login screen scrolls). */}
-      {employee && !employee.logRestricted && tab<=4 ? (
-        <div style={{position:"fixed",top:0,left:"50%",transform:"translateX(-50%)",width:"100%",maxWidth:480,zIndex:1000,paddingTop:"env(safe-area-inset-top,0px)",boxShadow:"0 2px 12px rgba(0,0,0,0.25)"}}>
-          <div style={S.header}>
-            <img src={LOGO_SRC} alt="DBX" style={{height:36,objectFit:"contain"}}/>
-            <div style={S.headerRight}>
-              <div style={{display:"flex",gap:6,alignItems:"center"}}>
-                <div style={S.langToggle}><LangBtn active={lang==="fr"} onClick={()=>setLang("fr")} label="FR" C={C}/><LangBtn active={lang==="en"} onClick={()=>setLang("en")} label="EN" C={C}/></div>
-                <button onClick={()=>{ const next=!darkMode; setDarkMode(next); localStorage.setItem("cargodx_darkmode",next); }}
-                  style={{background:"transparent",border:"1px solid #444",borderRadius:20,padding:"3px 10px",cursor:"pointer",fontSize:16,lineHeight:1,display:"flex",alignItems:"center",gap:4}}>
-                  {darkMode?"☀️":"🌙"}
-                </button>
-              </div>
-            </div>
-          </div>
-          <div style={{display:"flex",background:C.black==="#f1f5f9"?"#0f172a":C.black,borderBottom:`1px solid ${C.border}`}}>
-            <StepTab label={t("navDaily")} icon="📋" active={tab===2} done={tab>2} onClick={()=>goTab(2)} C={C}/>
-            {!(employee && employee.driverLog) && <StepTab label={t("navExpenses")} icon="🧾" active={tab===3} done={tab>3} onClick={()=>goTab(3)} C={C}/>}
-            {!(employee && employee.driverLog) && <StepTab label={t("navSummary")} icon="📊" active={tab===4} done={false} onClick={()=>goTab(4)} C={C}/>}
-            {employee && <StepTab label={t("navLogout")} icon="🚪" active={false} done={false} onClick={doLogout} C={C}/>}
-          </div>
-        </div>
-      ) : null}
-      {/* Spacer so content clears the fixed header+nav zone (login screen has no fixed zone) */}
-      {employee && !employee.logRestricted && tab<=4&&<div style={{height:112}}/>}
-
-
 
       {/* ── Screen 1: Login ── */}
       {tab===1&&<div style={S.screen}>
@@ -2103,17 +1877,7 @@ export default function TimesheetApp() {
         <div style={{marginBottom:12}}>
           <label style={{display:"block",fontSize:10,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.06em",color:C.gray,marginBottom:6}}>{lang==="fr"?"Choisissez votre date":"Choose your date"}</label>
           <div style={{display:"flex",alignItems:"center",gap:8}}>
-            <FocusInput type="date" value={logDate} max={today()} onChange={e=>{
-              const newDate=e.target.value;
-              if(pendingEntries.length>0){
-                const ok=window.confirm(lang==="fr"
-                  ?`Vous avez ${pendingEntries.length} entrée(s) non soumise(s) pour le ${logDate}. Changer de date les effacera sans les enregistrer.\n\nSoumettez-les d'abord, ou cliquez OK pour les effacer et changer de date.`
-                  :`You have ${pendingEntries.length} unsubmitted entr${pendingEntries.length>1?"ies":"y"} for ${logDate}. Changing the date will clear them without saving.\n\nSubmit them first, or click OK to discard them and change the date.`);
-                if(!ok) return; // keep current date and staged entries intact
-                setPendingEntries([]);
-              }
-              setLogDate(newDate);localStorage.setItem("cargodx_clockin_date",newDate);
-            }} style={{flex:1}}/>
+            <FocusInput type="date" value={logDate} max={today()} onChange={e=>{setLogDate(e.target.value);localStorage.setItem("cargodx_clockin_date",e.target.value);}} style={{flex:1}}/>
             {logDate<today()&&<span style={{fontSize:11,color:"#f59e0b",fontWeight:700,whiteSpace:"nowrap"}}>📅 {lang==="fr"?"Jour précédent":"Previous day"}</span>}
             {logDate>today()&&<span style={{fontSize:11,color:"#ef4444",fontWeight:700,whiteSpace:"nowrap"}}>⚠️ {lang==="fr"?"Date future — non permis":"Future date — not allowed"}</span>}
           </div>
@@ -2122,7 +1886,7 @@ export default function TimesheetApp() {
         {/* ── Event selector ── */}
         <div style={{marginBottom:16}}>
           <label style={{display:"block",fontSize:10,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.06em",color:C.gray,marginBottom:6}}>{lang==="fr"?"Choisissez votre événement *":"Choose your event *"}</label>
-          <FocusSelect value={shiftEvent} onChange={e=>{const ev=e.target.value;setShiftEvent(ev);localStorage.setItem("cargodx_clockin_event",ev);const evObj=allEvents.find(a=>a.name===ev);setEventAllowsNw(!!(evObj?.allowNwDays));setEventAllowsTravel(!!(evObj?.allowTravelDays));setEventAllowsPerDiem(!!(evObj?.allowPerDiem));setEventAllowsHours(evObj?.allowHours!==false);setEventAllowsDaily(!!(evObj?.allowDaily));setEventAllowsExpenses(evObj?.allowExpenses!==false);setEventAllowsTrips(!!(evObj?.allowTrips));setSubEventOptions((Array.isArray(evObj?.subEvents)?evObj.subEvents:[]).filter(s=>!(evObj?.archivedSubEvents||[]).includes(s)));setShiftSubEvent("");localStorage.removeItem("cargodx_clockin_subevent");setPendingEntries([]);setEditHours(false);setEquipAnswer(null);setLogMode("none");}}>
+          <FocusSelect value={shiftEvent} onChange={e=>{const ev=e.target.value;setShiftEvent(ev);localStorage.setItem("cargodx_clockin_event",ev);const evObj=allEvents.find(a=>a.name===ev);setEventAllowsNw(!!(evObj?.allowNwDays));setEventAllowsPerDiem(!!(evObj?.allowPerDiem));setEventAllowsHours(evObj?.allowHours!==false);setEventAllowsDaily(!!(evObj?.allowDaily));setEventAllowsExpenses(evObj?.allowExpenses!==false);setEventAllowsTrips(!!(evObj?.allowTrips));setSubEventOptions((Array.isArray(evObj?.subEvents)?evObj.subEvents:[]).filter(s=>!(evObj?.archivedSubEvents||[]).includes(s)));setShiftSubEvent("");localStorage.removeItem("cargodx_clockin_subevent");setPendingEntries([]);setEditHours(false);setEquipAnswer(null);setLogMode("hours");}}>
             <option value="">{lang==="fr"?"— Sélectionnez l'événement —":"— Select event —"}</option>
             {events.map(ev=><option key={ev}>{ev}</option>)}
           </FocusSelect>
@@ -2147,33 +1911,20 @@ export default function TimesheetApp() {
           </div>
         )}
 
-        {/* ── LOG MODE PICKER — only when the event allows BOTH hours and day-logging ──
-             Undecided (logMode==="none"): both buttons shown, employee chooses.
-             Picked: only the chosen button remains (full width); tapping it again
-             returns to "none" so a wrong pick is recoverable. ── */}
+        {/* ── LOG MODE PICKER — only when the event allows BOTH hours and day-logging ── */}
         {shiftEvent && eventAllowsHours && eventAllowsDaily && !clockedIn && (
-          <div style={{marginBottom:12}}>
-            <div style={{display:"grid",gridTemplateColumns:logMode==="none"?"1fr 1fr":"1fr",gap:8}}>
-              {(logMode==="none"||logMode==="hours") && (
-                <button onClick={()=>setLogMode(logMode==="hours"?"none":"hours")} style={{padding:"12px",borderRadius:10,border:`2px solid ${logMode==="hours"?"#22c55e":C.border}`,background:logMode==="hours"?"rgba(34,197,94,0.15)":C.surface,color:logMode==="hours"?"#22c55e":C.gray,fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>
-                  ⏱️ {lang==="fr"?"Enregistrer des heures":"Log Hours"}
-                </button>
-              )}
-              {(logMode==="none"||logMode==="day") && (
-                <button onClick={()=>setLogMode(logMode==="day"?"none":"day")} style={{padding:"12px",borderRadius:10,border:`2px solid ${logMode==="day"?"#22c55e":C.border}`,background:logMode==="day"?"rgba(34,197,94,0.15)":C.surface,color:logMode==="day"?"#22c55e":C.gray,fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>
-                  📅 {lang==="fr"?"Saisie au taux journalier":"Day-Rate Entry"}
-                </button>
-              )}
-            </div>
-            <div style={{fontSize:11,color:C.gray,textAlign:"center",marginTop:6}}>{logMode==="none"?(lang==="fr"?"Choisissez comment enregistrer aujourd'hui.":"Choose how you're logging today."):(lang==="fr"?"Touchez à nouveau pour changer de mode.":"Tap again to switch mode.")}</div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:12}}>
+            <button onClick={()=>setLogMode("hours")} style={{padding:"10px",borderRadius:10,border:`2px solid ${logMode==="hours"?"#0369a1":C.border}`,background:logMode==="hours"?"rgba(3,105,161,0.15)":"transparent",color:logMode==="hours"?"#0369a1":C.gray,fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>
+              ⏱️ {lang==="fr"?"Enregistrer des heures":"Log hours"}
+            </button>
+            <button onClick={()=>setLogMode("day")} style={{padding:"10px",borderRadius:10,border:`2px solid ${logMode==="day"?"#22c55e":C.border}`,background:logMode==="day"?"rgba(34,197,94,0.15)":"transparent",color:logMode==="day"?"#22c55e":C.gray,fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>
+              📅 {lang==="fr"?"Enregistrer une journée":"Log a working day"}
+            </button>
           </div>
         )}
 
         {/* ── HOURS EVENT ── */}
-        {/* Show when hours allowed AND not collapsed away. On a both-event this shows
-            only once the employee picks "hours" (undecided "none" shows neither section) —
-            but a clocked-in employee must ALWAYS see this so they can clock out. */}
-        {shiftEvent && eventAllowsHours && (clockedIn || !eventAllowsDaily || logMode==="hours") && (
+        {shiftEvent && eventAllowsHours && !(eventAllowsDaily && logMode==="day") && (
           <div>
             {/* Clock In / Out row */}
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:10}}>
@@ -2442,18 +2193,7 @@ export default function TimesheetApp() {
                 {/* Spacer so the sticky button doesn't hide content above it */}
                 <div style={{height:76}}/>
                 <div style={{position:"fixed",left:"50%",transform:"translateX(-50%)",bottom:"calc(64px + env(safe-area-inset-bottom,0px))",width:"100%",maxWidth:480,padding:"8px 16px",boxSizing:"border-box",zIndex:900,background:`linear-gradient(to top, ${C.white} 60%, transparent)`}}>
-                  <button style={{...S.btn,marginTop:0,boxShadow:"0 4px 16px rgba(0,0,0,0.25)"}} onClick={()=>setConfirmSubmit({
-                    title: lang==="fr"?"Confirmer les heures":"Confirm hours",
-                    lines: [
-                      `${lang==="fr"?"Date":"Date"}: ${logDate}`,
-                      `${lang==="fr"?"Heures":"Time"}: ${logStart} → ${logEnd}`,
-                      shiftEvent?`${lang==="fr"?"Événement":"Event"}: ${shiftEvent}${shiftSubEvent?" · "+shiftSubEvent:""}`:null,
-                      logTruck?`${lang==="fr"?"Camion":"Truck"}: ${logTruck}`:null,
-                      logTrailer?`${lang==="fr"?"Remorque":"Trailer"}: ${logTrailer}`:null,
-                      logNotes.trim()?`${lang==="fr"?"Notes":"Notes"}: ${logNotes.trim()}`:null,
-                    ].filter(Boolean),
-                    onConfirm: submitDay,
-                  })} disabled={submitting}>
+                  <button style={{...S.btn,marginTop:0,boxShadow:"0 4px 16px rgba(0,0,0,0.25)"}} onClick={submitDay} disabled={submitting}>
                     {submitting?t("submitting"):t("submitBtn")}
                   </button>
                 </div>
@@ -2463,10 +2203,7 @@ export default function TimesheetApp() {
         )}
 
         {/* ── NON-HOURS EVENT (working day / non-working / per diem / trips) ── */}
-        {/* Show when the event is day-only, OR it's a both-event and the employee has
-            picked "day" — undecided ("none") shows neither section. Never while clocked
-            in (a mid-shift hourly employee shouldn't be adding day-rate entries). */}
-        {shiftEvent && (!eventAllowsHours || (eventAllowsDaily && logMode==="day" && !clockedIn)) && (
+        {shiftEvent && (!eventAllowsHours || (eventAllowsDaily && logMode==="day")) && (
           <div>
             {/* Action buttons — only show what the event allows */}
             <div style={{display:"grid",gridTemplateColumns:(eventAllowsDaily&&eventAllowsNw)?"1fr 1fr":"1fr",gap:10,marginBottom:10}}>
@@ -2474,37 +2211,23 @@ export default function TimesheetApp() {
                 <button onClick={()=>{
                   if(pendingEntries.find(e=>e.type==="working-day")){showToast(lang==="fr"?"Journée de travail déjà ajoutée":"Working day already added",true);return;}
                   if(pendingEntries.find(e=>e.type==="non-working")){showToast(lang==="fr"?"Un jour non travaillé est déjà ajouté pour cette date":"A non-working day is already added for this date",true);return;}
-                  if(pendingEntries.find(e=>e.type==="travel-day")){showToast(lang==="fr"?"Un jour de déplacement est déjà ajouté pour cette date":"A traveling day is already added for this date",true);return;}
                   setPendingEntries(p=>{ const next=[...p,{type:"working-day",label:lang==="fr"?"Journée travaillée":"Working Day",icon:"📅",color:"#22c55e",detail:lang==="fr"?"Journée de travail":"Working day"}]; if(next.length>=2) setShowSubmitReminder(true); return next; });
                   showToast(lang==="fr"?"Journée ajoutée ✓":"Working day added ✓");
-                }} style={{padding:"14px",borderRadius:12,border:`2px solid ${pendingEntries.find(e=>e.type==="working-day")?"#22c55e":C.border}`,background:pendingEntries.find(e=>e.type==="working-day")?"rgba(34,197,94,0.12)":C.surface,color:pendingEntries.find(e=>e.type==="working-day")?"#16a34a":C.black,fontFamily:"'DM Sans',sans-serif",fontWeight:700,fontSize:14,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:8}}>
-                  <span style={{fontSize:22}}>{pendingEntries.find(e=>e.type==="working-day")?"✅":"📅"}</span> {lang==="fr"?"Journée travaillée":"Working Day"}
+                }} style={{padding:"14px",borderRadius:12,border:"2px solid #22c55e",background:"rgba(34,197,94,0.08)",color:"#16a34a",fontFamily:"'DM Sans',sans-serif",fontWeight:700,fontSize:14,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:8}}>
+                  <span style={{fontSize:22}}>📅</span> {lang==="fr"?"Journée travaillée":"Working Day"}
                 </button>
               )}
               {eventAllowsNw && (
                 <button onClick={()=>{
                   if(pendingEntries.find(e=>e.type==="non-working")){showToast(lang==="fr"?"Jour non travaillé déjà ajouté":"Non-working day already added",true);return;}
                   if(pendingEntries.find(e=>e.type==="working-day")){showToast(lang==="fr"?"Une journée travaillée est déjà ajoutée pour cette date":"A working day is already added for this date",true);return;}
-                  if(pendingEntries.find(e=>e.type==="travel-day")){showToast(lang==="fr"?"Un jour de déplacement est déjà ajouté pour cette date":"A traveling day is already added for this date",true);return;}
                   setPendingEntries(p=>{ const next=[...p,{type:"non-working",label:lang==="fr"?"Jour non travaillé":"Non-Working Day",icon:"🚫",color:"#f59e0b",detail:lang==="fr"?"Jour non travaillé":"Non-working day"}]; if(next.length>=2) setShowSubmitReminder(true); return next; });
                   showToast(lang==="fr"?"Jour non travaillé ajouté ✓":"Non-working day added ✓");
-                }} style={{padding:"14px",borderRadius:12,border:`2px solid ${pendingEntries.find(e=>e.type==="non-working")?"#22c55e":C.border}`,background:pendingEntries.find(e=>e.type==="non-working")?"rgba(34,197,94,0.12)":C.surface,color:pendingEntries.find(e=>e.type==="non-working")?"#16a34a":C.black,fontFamily:"'DM Sans',sans-serif",fontWeight:700,fontSize:14,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:8}}>
-                  <span style={{fontSize:22}}>{pendingEntries.find(e=>e.type==="non-working")?"✅":"🚫"}</span> {lang==="fr"?"Jour non travaillé":"Non-Working Day"}
+                }} style={{padding:"14px",borderRadius:12,border:"2px solid #f59e0b",background:"rgba(245,158,11,0.08)",color:"#b45309",fontFamily:"'DM Sans',sans-serif",fontWeight:700,fontSize:14,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:8}}>
+                  <span style={{fontSize:22}}>🚫</span> {lang==="fr"?"Jour non travaillé":"Non-Working Day"}
                 </button>
               )}
             </div>
-
-            {eventAllowsTravel && (
-              <button onClick={()=>{
-                if(pendingEntries.find(e=>e.type==="travel-day")){showToast(lang==="fr"?"Jour de déplacement déjà ajouté":"Traveling day already added",true);return;}
-                if(pendingEntries.find(e=>e.type==="working-day")){showToast(lang==="fr"?"Une journée travaillée est déjà ajoutée pour cette date":"A working day is already added for this date",true);return;}
-                if(pendingEntries.find(e=>e.type==="non-working")){showToast(lang==="fr"?"Un jour non travaillé est déjà ajouté pour cette date":"A non-working day is already added for this date",true);return;}
-                setPendingEntries(p=>{ const next=[...p,{type:"travel-day",label:lang==="fr"?"Jour de déplacement":"Traveling Day",icon:"✈️",color:"#8b5cf6",detail:lang==="fr"?"Jour de déplacement":"Traveling day"}]; if(next.length>=2) setShowSubmitReminder(true); return next; });
-                showToast(lang==="fr"?"Jour de déplacement ajouté ✓":"Traveling day added ✓");
-              }} style={{width:"100%",padding:"14px",borderRadius:12,border:`2px solid ${pendingEntries.find(e=>e.type==="travel-day")?"#22c55e":C.border}`,background:pendingEntries.find(e=>e.type==="travel-day")?"rgba(34,197,94,0.12)":C.surface,color:pendingEntries.find(e=>e.type==="travel-day")?"#16a34a":C.black,fontFamily:"'DM Sans',sans-serif",fontWeight:700,fontSize:14,cursor:"pointer",marginBottom:10,display:"flex",alignItems:"center",justifyContent:"center",gap:8}}>
-                <span style={{fontSize:22}}>{pendingEntries.find(e=>e.type==="travel-day")?"✅":"✈️"}</span> {lang==="fr"?"Jour de déplacement":"Traveling Day"}
-              </button>
-            )}
 
             {eventAllowsPerDiem && (
               <button onClick={()=>{
@@ -2512,8 +2235,8 @@ export default function TimesheetApp() {
                 if(already){showToast(lang==="fr"?"Per diem déjà ajouté":"Per diem already added",true);return;}
                 setPendingEntries(p=>{ const next=[...p,{type:"per-diem",label:"Per Diem",icon:"🍽️",color:"#0ea5e9",detail:"$"+((employee?.payCfg?.perDiem||"?")+"")}]; if(next.length>=2) setShowSubmitReminder(true); return next; });
                 showToast(lang==="fr"?"Per diem ajouté ✓":"Per diem added ✓");
-              }} style={{width:"100%",padding:"14px",borderRadius:12,border:`2px solid ${pendingEntries.find(e=>e.type==="per-diem")?"#22c55e":C.border}`,background:pendingEntries.find(e=>e.type==="per-diem")?"rgba(34,197,94,0.12)":C.surface,color:pendingEntries.find(e=>e.type==="per-diem")?"#16a34a":C.black,fontFamily:"'DM Sans',sans-serif",fontWeight:700,fontSize:14,cursor:"pointer",marginBottom:10,display:"flex",alignItems:"center",justifyContent:"center",gap:8}}>
-                <span style={{fontSize:22}}>{pendingEntries.find(e=>e.type==="per-diem")?"✅":"🍽️"}</span> {lang==="fr"?"Ajouter un per diem":"Add Per Diem"}
+              }} style={{width:"100%",padding:"14px",borderRadius:12,border:"2px solid #0ea5e9",background:"rgba(14,165,233,0.08)",color:"#0369a1",fontFamily:"'DM Sans',sans-serif",fontWeight:700,fontSize:14,cursor:"pointer",marginBottom:10,display:"flex",alignItems:"center",justifyContent:"center",gap:8}}>
+                <span style={{fontSize:22}}>🍽️</span> {lang==="fr"?"Ajouter un per diem":"Add Per Diem"}
               </button>
             )}
 
@@ -2639,15 +2362,35 @@ export default function TimesheetApp() {
               <>
                 <div style={{height:76}}/>
                 <div style={{position:"fixed",left:"50%",transform:"translateX(-50%)",bottom:"calc(64px + env(safe-area-inset-bottom,0px))",width:"100%",maxWidth:480,padding:"8px 16px",boxSizing:"border-box",zIndex:900,background:`linear-gradient(to top, ${C.white} 60%, transparent)`}}>
-                  <button onClick={()=>setConfirmSubmit({
-                    title: lang==="fr"?"Confirmer les entrées":"Confirm entries",
-                    lines: [
-                      `${lang==="fr"?"Date":"Date"}: ${logDate||today()}`,
-                      shiftEvent?`${lang==="fr"?"Événement":"Event"}: ${shiftEvent}${shiftSubEvent?" · "+shiftSubEvent:""}`:null,
-                      ...pendingEntries.map(e=>`• ${e.label}${e.detail?" — "+e.detail:""}`),
-                    ].filter(Boolean),
-                    onConfirm: submitPendingEntries,
-                  })} style={{...S.btn,background:"#22c55e",boxShadow:"0 4px 16px rgba(34,197,94,0.35)"}} disabled={submitting}>
+                  <button onClick={async()=>{
+                if(!employee){alert(lang==="fr"?"Veuillez vous identifier d'abord.":"Please register first.");return;}
+                if(!shiftEvent){alert(lang==="fr"?"Veuillez sélectionner un événement.":"Please select an event.");return;}
+                setSubmitting(true);
+                try {
+                  const entryDate = logDate||today();
+                  if(isFutureDate(entryDate)) { alert(lang==="fr"?`La date (${entryDate}) est dans le futur. Vous ne pouvez pas enregistrer pour une date future.`:`The date (${entryDate}) is in the future. You cannot register for a future date.`); setSubmitting(false); return; }
+                  for(const entry of pendingEntries) {
+                    if(entry.type==="working-day") {
+                      if(await hasDayEntry("working-day")){showToast(lang==="fr"?"Journée déjà enregistrée":"Already registered",true);continue;}
+                      if(await hasDayEntry("non-working")){showToast(lang==="fr"?"Jour non travaillé existe déjà":"Non-working day exists",true);continue;}
+                      await addDoc(collection(db,"timesheets"),{employeeName:employee.name,employeePhone:employee.phone,employeeEmail:employee.email,event:shiftEvent||employee.event,subEvent:shiftSubEvent||null,date:entryDate,notes:logNotes.trim()||null,dayType:"working-day",numDays:1,submittedAt:new Date().toISOString()});
+                    } else if(entry.type==="non-working") {
+                      if(await hasDayEntry("non-working")){showToast(lang==="fr"?"Déjà enregistré":"Already registered",true);continue;}
+                      if(await hasDayEntry("working-day")){showToast(lang==="fr"?"Journée de travail existe déjà":"Working day exists",true);continue;}
+                      await addDoc(collection(db,"timesheets"),{employeeName:employee.name,employeePhone:employee.phone,employeeEmail:employee.email,event:shiftEvent||employee.event,subEvent:shiftSubEvent||null,date:entryDate,notes:logNotes.trim()||null,dayType:"non-working",submittedAt:new Date().toISOString()});
+                    } else if(entry.type==="per-diem") {
+                      if(await hasDayEntry("per-diem")){showToast(lang==="fr"?"Per diem déjà enregistré":"Per diem already registered",true);continue;}
+                      await addDoc(collection(db,"timesheets"),{employeeName:employee.name,employeePhone:employee.phone,employeeEmail:employee.email,event:shiftEvent||employee.event,subEvent:shiftSubEvent||null,date:entryDate,notes:logNotes.trim()||null,dayType:"per-diem",numPerDiem:1,submittedAt:new Date().toISOString()});
+                    } else if(entry.type==="trip") {
+                      await addDoc(collection(db,"timesheets"),{employeeName:employee.name,employeePhone:employee.phone,employeeEmail:employee.email,event:shiftEvent||employee.event,subEvent:shiftSubEvent||null,date:entryDate,notes:logNotes.trim()||null,dayType:"trip",numTrips:parseInt(tripCount)||1,submittedAt:new Date().toISOString()});
+                    }
+                  }
+                  setPendingEntries([]);
+                  setLogNotes("");
+                  showToast(lang==="fr"?"Soumis avec succès ✓":"Submitted successfully ✓");
+                } catch(e){console.error(e);showToast(lang==="fr"?"Erreur":"Error",true);}
+                setSubmitting(false);
+              }} style={{...S.btn,background:"#22c55e",boxShadow:"0 4px 16px rgba(34,197,94,0.35)"}} disabled={submitting}>
                 {submitting?t("submitting"):`✅ ${lang==="fr"?"Soumettre tout":"Submit All"} (${pendingEntries.length})`}
               </button>
                 </div>
@@ -2662,7 +2405,7 @@ export default function TimesheetApp() {
         <EmpTag/>
         <div style={S.title}>{t("expenseTitle")}</div>
         <div style={S.sub}>{t("expenseSub")}</div>
-        <Field label={t("expenseDate")} required C={C} S={S}><FocusInput type="date" value={expDate} max={today()} onChange={e=>setExpDate(e.target.value)}/></Field>
+        <Field label={t("expenseDate")} required C={C} S={S}><FocusInput type="date" value={expDate} onChange={e=>setExpDate(e.target.value)}/></Field>
         <Field label={lang==="fr"?"Événement":"Event"} required C={C} S={S}>
           <FocusSelect value={expEvent||employee?.event||""} onChange={e=>{setExpEvent(e.target.value);setExpSubEvent("");}}>
             <option value="">{lang==="fr"?"— Sélectionnez l'événement —":"— Select event —"}</option>
@@ -2720,16 +2463,7 @@ export default function TimesheetApp() {
           ))}
         </div>}
 
-        <button style={{...S.btn,...S.btnGrn}} onClick={()=>{
-          const formItem = (expType||expAmount||expDesc.trim()||expFile) ? [{type:expType||"?",amount:parseFloat(expAmount)||0,currency:expCurrency,receiptName:expFile?.name,date:expDate,subEvent:expSubEvent}] : [];
-          const all = [...stagedExpenses, ...formItem];
-          if(!all.length){ alert(t("alertFill")); return; }
-          setConfirmSubmit({
-            title: lang==="fr"?"Confirmer les dépenses":"Confirm expenses",
-            lines: all.map(x=>`• ${x.date} · ${x.type} — ${x.currency} ${(x.amount||0).toFixed(2)}${x.subEvent?" · "+x.subEvent:""}`),
-            onConfirm: submitAll,
-          });
-        }} disabled={submitting}>{submitting?t("uploading"):(stagedExpenses.length>0?`${t("submitAllBtn")} (${stagedExpenses.length + (expType||expAmount||expDesc.trim()||expFile?1:0)})`:t("submitExpenseBtn"))}</button>
+        <button style={{...S.btn,...S.btnGrn}} onClick={submitAll} disabled={submitting}>{submitting?t("uploading"):(stagedExpenses.length>0?`${t("submitAllBtn")} (${stagedExpenses.length + (expType||expAmount||expDesc.trim()||expFile?1:0)})`:t("submitExpenseBtn"))}</button>
         <button style={{...S.btn,...S.btnOut}} onClick={()=>goTab(2)}>{t("backToHours")}</button>
       </div>}
 
@@ -2748,23 +2482,11 @@ export default function TimesheetApp() {
             {lang==="fr"?"Veuillez vous inscrire d'abord.":"Please register first."}
           </div>
         ) : loadingData ? <div style={{color:C.gray,fontSize:14}}>{t("loading")}</div> : <>
-          {!isMultiEvent && totalEventPay!=null && totalEventPay>0 && (
+          {totalEventPay!=null && totalEventPay>0 && (
             <div style={{background:"rgba(22,163,74,0.1)",border:`1.5px solid #16a34a`,borderRadius:10,padding:"14px 16px",marginBottom:14}}>
-              <div style={{fontSize:11,fontWeight:700,color:C.gray,textTransform:"uppercase",letterSpacing:"0.05em"}}>{lang==="fr"?`Total estimé — ${eventsInWindow[0]||shiftEvent||employee.event||""}`:`Estimated total — ${eventsInWindow[0]||shiftEvent||employee.event||""}`}</div>
+              <div style={{fontSize:11,fontWeight:700,color:C.gray,textTransform:"uppercase",letterSpacing:"0.05em"}}>{lang==="fr"?`Total estimé — ${shiftEvent||employee.event||""}`:`Estimated total — ${shiftEvent||employee.event||""}`}</div>
               <div style={{fontSize:26,fontWeight:800,color:"#16a34a",marginTop:2}}>{_paySym}{totalEventPay.toFixed(2)}</div>
               <div style={{fontSize:11,color:C.gray,marginTop:2}}>{lang==="fr"?"Basé sur vos taux configurés. Montant indicatif.":"Based on your configured rates. Estimate only."}</div>
-            </div>
-          )}
-          {isMultiEvent && hasAnyRates && (
-            <div style={{marginBottom:14}}>
-              <div style={{fontSize:11,fontWeight:700,color:C.gray,textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:6}}>{lang==="fr"?"Totaux estimés par événement":"Estimated totals by event"}</div>
-              {eventsInWindow.map(ev=>{ const p=payForEvent(ev)||0; return (
-                <div key={ev} style={{display:"flex",justifyContent:"space-between",alignItems:"center",background:"rgba(22,163,74,0.08)",border:`1px solid rgba(22,163,74,0.35)`,borderRadius:8,padding:"10px 12px",marginBottom:6}}>
-                  <span style={{fontSize:13,fontWeight:700,color:C.black}}>{ev}</span>
-                  <span style={{fontSize:17,fontWeight:800,color:"#16a34a"}}>{_paySym}{p.toFixed(2)}</span>
-                </div>
-              );})}
-              <div style={{fontSize:11,color:C.gray,marginTop:2}}>{lang==="fr"?"Basé sur vos taux configurés. Montants indicatifs.":"Based on your configured rates. Estimates only."}</div>
             </div>
           )}
           <div style={S.statsGrid}>
@@ -2774,23 +2496,21 @@ export default function TimesheetApp() {
             {/* Day-type tiles — each only renders when such entries exist, so
                 per diems and working/non-working days are counted rather than
                 hidden among 0.0h rows. */}
-            {(()=>{ const n=filteredLogs.filter(l=>l.dayType==="working-day"||l.dayType==="working"||(_num(l.numDays)>0)).reduce((a,l)=>a+(_num(l.numDays)||1),0);
+            {(()=>{ const n=filteredLogs.filter(l=>l.dayType==="working-day").reduce((a,l)=>a+(l.numDays||1),0);
               return n>0 && <div style={S.statBox}><div style={S.statLbl}>{lang==="fr"?"Jours trav.":"Working days"}</div><div style={{...S.statVal,color:"#16a34a"}}>{n}</div></div>; })()}
-            {(()=>{ const n=filteredLogs.filter(l=>l.dayType==="non-working"||(_num(l.numNwDays)>0)).reduce((a,l)=>a+(_num(l.numNwDays)||1),0);
+            {(()=>{ const n=filteredLogs.filter(l=>l.dayType==="non-working").length;
               return n>0 && <div style={S.statBox}><div style={S.statLbl}>{lang==="fr"?"Non trav.":"Non-working"}</div><div style={{...S.statVal,color:"#ea580c"}}>{n}</div></div>; })()}
-            {(()=>{ const n=filteredLogs.filter(l=>l.dayType==="travel-day"||(_num(l.numTravelDays)>0)).reduce((a,l)=>a+(_num(l.numTravelDays)||1),0);
-              return n>0 && <div style={S.statBox}><div style={S.statLbl}>{lang==="fr"?"Déplac.":"Traveling"}</div><div style={{...S.statVal,color:"#8b5cf6"}}>{n}</div></div>; })()}
-            {(()=>{ const n=filteredLogs.filter(l=>l.dayType==="per-diem"||(_num(l.numPerDiem)>0)).reduce((a,l)=>a+(_num(l.numPerDiem)||1),0);
+            {(()=>{ const n=filteredLogs.filter(l=>l.dayType==="per-diem").reduce((a,l)=>a+(l.numPerDiem||1),0);
               return n>0 && <div style={S.statBox}><div style={S.statLbl}>{lang==="fr"?"Per diem":"Per diem"}</div><div style={{...S.statVal,color:"#0ea5e9"}}>{n}</div></div>; })()}
-            {(()=>{ const n=filteredLogs.filter(l=>l.dayType==="trip"||(_num(l.numTrips)>0)).reduce((a,l)=>a+(_num(l.numTrips)||1),0);
+            {(()=>{ const n=filteredLogs.filter(l=>l.dayType==="trip").reduce((a,l)=>a+(l.numTrips||1),0);
               return n>0 && <div style={S.statBox}><div style={S.statLbl}>{lang==="fr"?"Voyages":"Trips"}</div><div style={{...S.statVal,color:"#8b5cf6"}}>{n}</div></div>; })()}
           </div>
 
-          {/* Date filter: 14 days / 30 days */}
+          {/* Date filter */}
           <div style={{display:"flex",gap:6,marginBottom:4,flexWrap:"wrap"}}>
-            {[{d:14,label:lang==="fr"?"14 jours":"14 days"},{d:30,label:lang==="fr"?"30 jours":"30 days"}].map(o=>(
-              <button key={o.d} onClick={()=>setSummaryDays(o.d)} style={{padding:"4px 12px",borderRadius:20,fontSize:11,fontWeight:600,cursor:"pointer",fontFamily:"inherit",border:`1px solid ${summaryDays===o.d?C.red:C.border}`,background:summaryDays===o.d?C.redLight:"transparent",color:summaryDays===o.d?C.red:C.gray}}>
-                {o.label}
+            {[7,14].map(d=>(
+              <button key={d} onClick={()=>setSummaryDays(d)} style={{padding:"4px 12px",borderRadius:20,fontSize:11,fontWeight:600,cursor:"pointer",fontFamily:"inherit",border:`1px solid ${summaryDays===d?C.red:C.border}`,background:summaryDays===d?C.redLight:"transparent",color:summaryDays===d?C.red:C.gray}}>
+                {`${d}d`}
               </button>
             ))}
           </div>
@@ -2804,82 +2524,47 @@ export default function TimesheetApp() {
               🔄 {lang==="fr"?"Réessayer":"Try again"}
             </button>
           </div>:
-            (()=>{
-              // Group entries by date; each day is one collapsible row showing the day's total.
-              const byDate = {};
-              // Only real hours/day-type entries belong in the hours breakdown.
-              // An entry with no hours, no day-type, and no numeric count is an empty
-              // carrier (e.g. left over from an expense submission) — skip it so it
-              // doesn't show as a phantom "0.0h $0.00" row. Expenses have their own section.
-              const isRealEntry = (l) => (_num(l.hours)>0) || l.dayType==="working-day" || l.dayType==="working" || l.dayType==="non-working" || l.dayType==="travel-day" || l.dayType==="per-diem" || l.dayType==="trip" || (_num(l.numDays)>0) || (_num(l.numNwDays)>0) || (_num(l.numTravelDays)>0) || (_num(l.numPerDiem)>0) || (_num(l.numTrips)>0) || !!(l.startTime&&l.endTime);
-              filteredLogs.filter(isRealEntry).forEach(l=>{ const k=l.date||"—"; (byDate[k]=byDate[k]||[]).push(l); });
-              const dates = Object.keys(byDate).sort((a,b)=>b.localeCompare(a)); // newest first
+            filteredLogs.map(l=>{
+              // Entries are not all clocked shifts — dayType says what each one is.
+              // Without this, a non-working day or per diem rendered as a bare
+              // "0.0h" row with an empty "→" time range and no label.
               const DT = {
                 "working-day": { label: lang==="fr"?"Journée travaillée":"Working day", icon:"📅", color:"#16a34a" },
-                "working":     { label: lang==="fr"?"Journée travaillée":"Working day", icon:"📅", color:"#16a34a" },
                 "non-working": { label: lang==="fr"?"Journée non travaillée":"Non-working day", icon:"🚫", color:"#ea580c" },
-                "travel-day":  { label: lang==="fr"?"Jour de déplacement":"Traveling day", icon:"✈️", color:"#8b5cf6" },
                 "per-diem":    { label: lang==="fr"?"Per diem":"Per diem", icon:"🍽️", color:"#0ea5e9" },
                 "trip":        { label: lang==="fr"?"Voyage":"Trip", icon:"🚚", color:"#8b5cf6" },
               };
-              const metaFor = (l)=> DT[l.dayType] || ((_num(l.numDays)>0&&DT["working-day"])||(_num(l.numNwDays)>0&&DT["non-working"])||(_num(l.numTravelDays)>0&&DT["travel-day"])||(_num(l.numPerDiem)>0&&DT["per-diem"])||(_num(l.numTrips)>0&&DT["trip"])||null);
-              return dates.map(dk=>{
-                const items = byDate[dk];
-                const dayTotal = items.reduce((a,l)=>a+(entryAmount(l)||0),0);
-                const dayHours = items.reduce((a,l)=>a+(l.hours||0),0);
-                const open = !!expandedDays[dk];
-                return <div key={dk} style={{...S.logItem,padding:0,overflow:"hidden"}}>
-                  {/* Day header — tap to expand */}
-                  <div onClick={()=>setExpandedDays(p=>({...p,[dk]:!p[dk]}))} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"12px 14px",cursor:"pointer"}}>
-                    <div style={{display:"flex",alignItems:"center",gap:8}}>
-                      <span style={{fontSize:12,color:C.gray,transform:open?"rotate(90deg)":"none",transition:"transform .15s"}}>▶</span>
-                      <div style={S.logDate}>{fmtDate(dk,t("locale"))}</div>
-                      {isMultiEvent && items[0]?.event && <span style={{fontSize:10,fontWeight:700,padding:"1px 7px",borderRadius:9,background:"rgba(96,165,250,0.15)",color:"#60a5fa",whiteSpace:"nowrap"}}>{items[0].event}</span>}
-                      <span style={{fontSize:11,color:C.gray}}>({items.length})</span>
-                    </div>
-                    <div style={{display:"flex",alignItems:"center",gap:8}}>
-                      {dayHours>0 && <span style={S.logHrs}>{dayHours.toFixed(1)}h</span>}
-                      {dayTotal>0 && <span style={{fontFamily:"'DM Mono',monospace",fontSize:14,fontWeight:800,color:"#16a34a"}}>{_paySym}{dayTotal.toFixed(2)}</span>}
-                    </div>
-                  </div>
-                  {/* Expanded detail */}
-                  {open && <div style={{borderTop:`1px solid ${C.border}`}}>
-                    {items.map(l=>{
-                      const meta = metaFor(l);
-                      const isShift = !meta;
-                      const qty = _num(l.numPerDiem)>0?(l.numPerDiem):_num(l.numTrips)>0?(l.numTrips):_num(l.numDays)>0?(l.numDays):(l.dayType==="per-diem"?(l.numPerDiem||1):l.dayType==="trip"?(l.numTrips||1):(l.dayType==="working-day"||l.dayType==="working")?(l.numDays||1):null);
-                      return <div key={l.id} style={{padding:"10px 14px 10px 30px",borderTop:`1px solid ${C.border}22`}}>
-                        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                          <div style={{flex:1}}>
-                            {isShift
-                              ? <div style={S.logTime}>{l.startTime} → {l.endTime}{l.breakMinutes?` (−${l.breakMinutes}min)`:""}</div>
-                              : <span style={{display:"inline-block",padding:"2px 9px",borderRadius:10,fontSize:11,fontWeight:700,background:`${meta.color}1a`,color:meta.color}}>{meta.icon} {meta.label}{qty>1?` ×${qty}`:""}</span>}
-                          </div>
-                          <div style={{display:"flex",alignItems:"center",gap:8}}>
-                            {isShift && <div style={S.logHrs}>{(l.hours||0).toFixed(1)}h</div>}
-                            {entryAmount(l)!=null && <div style={{fontFamily:"'DM Mono',monospace",fontSize:13,fontWeight:700,color:"#16a34a"}}>{_paySym}{entryAmount(l).toFixed(2)}</div>}
-                          </div>
-                        </div>
-                        {(l.truckUnit||l.kmStart||l.kmEnd) && <div style={{fontSize:11,color:C.gray,marginTop:3,display:"flex",gap:10,flexWrap:"wrap"}}>
-                          {l.truckUnit && <span>🚛 {l.truckUnit}</span>}
-                          {l.trailerUnit && <span>🚚 {l.trailerUnit}</span>}
-                          {l.kmStart!=null && l.kmEnd!=null && <span>📍 {l.kmStart} → {l.kmEnd} km</span>}
+              const meta = DT[l.dayType];
+              const isShift = !meta; // a real clocked shift has start/end times
+              const qty = l.dayType==="per-diem" ? (l.numPerDiem||1)
+                        : l.dayType==="trip" ? (l.numTrips||1)
+                        : l.dayType==="working-day" ? (l.numDays||1) : null;
+              return <div key={l.id} style={{...S.logItem, ...(meta?{borderLeft:`3px solid ${meta.color}`}:{})}}>
+                <div style={S.logHdr}>
+                  <div style={S.logDate}>{fmtDate(l.date,t("locale"))}</div>
+                  <div style={{display:"flex",alignItems:"center",gap:8}}>
+                    {isShift
+                      ? <div style={S.logHrs}>{(l.hours||0).toFixed(1)}h</div>
+                      : <div style={{fontFamily:"'DM Mono',monospace",fontSize:13,fontWeight:700,color:meta.color}}>
+                          {qty>1?`\u00d7${qty}`:"\u2713"}
                         </div>}
-                        {l.notes && <div style={S.logNote}>{l.notes}</div>}
-                        <div style={{marginTop:6,display:"flex",justifyContent:"flex-end",gap:6}}>
-                          {isEventLocked(l.event)
-                            ? <span style={{fontSize:10,color:C.gray,fontStyle:"italic"}}>🔒 {lang==="fr"?"Verrouillé":"Locked"}</span>
-                            : <>
-                                <button onClick={()=>setEditEntry({...l})} style={{padding:"3px 10px",borderRadius:6,border:`1px solid ${C.border}`,background:"transparent",color:"#0ea5e9",fontSize:11,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>{lang==="fr"?"Modifier":"Edit"}</button>
-                                <button onClick={()=>deleteMyEntry(l)} style={{padding:"3px 10px",borderRadius:6,border:`1px solid ${C.border}`,background:"transparent",color:"#ef4444",fontSize:11,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>{lang==="fr"?"Supprimer":"Delete"}</button>
-                              </>}
-                        </div>
-                      </div>;
-                    })}
-                  </div>}
-                </div>;
-              });
-            })()
+                    {entryAmount(l)!=null && <div style={{fontFamily:"'DM Mono',monospace",fontSize:13,fontWeight:700,color:"#16a34a"}}>{_paySym}{entryAmount(l).toFixed(2)}</div>}
+                  </div>
+                </div>
+                {isShift
+                  ? <div style={S.logTime}>{l.startTime} → {l.endTime}{l.breakMinutes?` (−${l.breakMinutes}min break)`:""}</div>
+                  : <div style={{marginTop:2}}>
+                      <span style={{display:"inline-block",padding:"2px 9px",borderRadius:10,fontSize:11,fontWeight:700,
+                                    background:`${meta.color}1a`,color:meta.color}}>{meta.icon} {meta.label}</span>
+                    </div>}
+                {(l.truckUnit||l.kmStart||l.kmEnd) && <div style={{fontSize:11,color:C.gray,marginTop:3,display:"flex",gap:10,flexWrap:"wrap"}}>
+                  {l.truckUnit && <span>🚛 {lang==="fr"?"Camion":"Truck"}: {l.truckUnit}</span>}
+                  {l.trailerUnit && <span>🚚 {lang==="fr"?"Remorque":"Trailer"}: {l.trailerUnit}</span>}
+                  {l.kmStart!=null && l.kmEnd!=null && <span>📍 {l.kmStart} → {l.kmEnd} km {l.kmTotal!=null?`(+${l.kmTotal} km)`:""}</span>}
+                </div>}
+                {l.notes && <div style={S.logNote}>{l.notes}</div>}
+              </div>;
+            })
           }
 
           {/* Expenses */}
@@ -2889,7 +2574,7 @@ export default function TimesheetApp() {
             filteredExpenses.map(ex=><div key={ex.id} style={{...S.logItem,borderLeft:`3px solid ${C.green}`}}>
               <div style={S.logHdr}>
                 <div style={S.logDate}>{fmtDate(ex.date,t("locale"))}</div>
-                <div style={{fontFamily:"'DM Mono',monospace",fontSize:13,fontWeight:600,color:C.green}}>{ex.currency} {parseFloat(ex.amount).toFixed(2)}{(ex.currency||"CAD")==="USD"&&(typeof ex.amountCad==="number"?<span style={{color:C.gray,fontWeight:400}}> → CAD {ex.amountCad.toFixed(2)}</span>:<span style={{color:"#ea580c",fontWeight:400}}> ⚠ CAD?</span>)}</div>
+                <div style={{fontFamily:"'DM Mono',monospace",fontSize:13,fontWeight:600,color:C.green}}>{ex.currency} {parseFloat(ex.amount).toFixed(2)}</div>
               </div>
               <div style={{fontSize:11,color:C.gray,marginBottom:4,display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
                 <span>{ex.type}</span>
@@ -2898,41 +2583,8 @@ export default function TimesheetApp() {
               </div>
               <div style={S.logNote}>{ex.description}</div>
               {ex.receiptUrl&&<a href={ex.receiptUrl} target="_blank" rel="noreferrer" style={{display:"inline-flex",alignItems:"center",gap:5,marginTop:8,fontSize:12,color:C.green,fontWeight:600,textDecoration:"none"}}>📎 {t("viewReceipt")}</a>}
-              <div style={{marginTop:6,display:"flex",justifyContent:"flex-end"}}>
-                {isEventLocked(ex.event)
-                  ? <span style={{fontSize:10,color:C.gray,fontStyle:"italic"}}>🔒 {lang==="fr"?"Verrouillé":"Locked"}</span>
-                  : <button onClick={()=>deleteMyExpense(ex)} style={{padding:"3px 10px",borderRadius:6,border:`1px solid ${C.border}`,background:"transparent",color:"#ef4444",fontSize:11,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>{lang==="fr"?"Supprimer":"Delete"}</button>}
-              </div>
             </div>)
           }
-
-          {/* Review & acknowledge — one card per event the employee has in this window.
-              Sends no new data (entries already saved live); records a per-event sign-off. */}
-          {(eventsInWindow.length>0 ? eventsInWindow : []).map(ev=>{
-            const ackState = ackMap[ev];
-            return (
-              <div key={ev} style={{marginTop:16,padding:16,borderRadius:12,border:`1.5px solid ${ackState?C.green:C.border}`,background:ackState?"rgba(34,197,94,0.08)":C.surface}}>
-                {ackState ? (
-                  <div>
-                    <div style={{textAlign:"center",marginBottom:12}}>
-                      <div style={{fontSize:14,fontWeight:700,color:C.green,marginBottom:4}}>✓ {lang==="fr"?`« ${ev} » confirmé`:`"${ev}" confirmed`}</div>
-                      <div style={{fontSize:12,color:C.gray}}>{lang==="fr"?"Vous avez confirmé vos entrées le":"You confirmed your entries on"} {new Date(ackState.acknowledgedAt).toLocaleDateString(t("locale"),{month:"short",day:"numeric",year:"numeric"})}. {lang==="fr"?"Vous pouvez encore modifier tant que l'événement n'est pas verrouillé.":"You can still edit until the event is locked."}</div>
-                    </div>
-                    {/* Re-confirm — stays available in case the employee adds more entries after confirming
-                        (e.g. dispatch adds last-minute days). Re-confirming updates the timestamp. */}
-                    <div style={{fontSize:11,color:C.gray,textAlign:"center",marginBottom:8}}>{lang==="fr"?"Vous avez ajouté ou modifié des entrées depuis ? Confirmez à nouveau.":"Added or changed entries since? Confirm again."}</div>
-                    <button onClick={()=>acknowledgeEventNamed(ev)} style={{width:"100%",padding:"11px",borderRadius:10,background:"transparent",color:C.green,border:`1.5px solid ${C.green}`,fontFamily:"inherit",fontSize:13,fontWeight:700,cursor:"pointer"}}>{lang==="fr"?`Reconfirmer « ${ev} »`:`Re-confirm "${ev}"`}</button>
-                  </div>
-                ) : (
-                  <div>
-                    <div style={{fontSize:13,fontWeight:700,color:C.black,marginBottom:4}}>{lang==="fr"?`Terminé pour « ${ev} » ?`:`Done with "${ev}"?`}</div>
-                    <div style={{fontSize:12,color:C.gray,marginBottom:12}}>{lang==="fr"?`Passez en revue vos entrées pour « ${ev} » ci-dessus. Quand tout est exact, confirmez pour indiquer que votre feuille est complète.`:`Review your entries for "${ev}" above. When everything is correct, confirm to let dispatch know your sheet is complete.`}</div>
-                    <button onClick={()=>acknowledgeEventNamed(ev)} style={{width:"100%",padding:"13px",borderRadius:10,background:"#16a34a",color:"#fff",border:"none",fontFamily:"inherit",fontSize:14,fontWeight:700,cursor:"pointer"}}>{lang==="fr"?`J'ai vérifié — confirmer « ${ev} »`:`I've reviewed — confirm "${ev}"`}</button>
-                  </div>
-                )}
-              </div>
-            );
-          })}
 
           {/* Documents */}
           <div style={S.divider}/>
@@ -3408,27 +3060,8 @@ export default function TimesheetApp() {
           <div style={{background:"#fff",borderRadius:16,padding:28,maxWidth:360,width:"100%",textAlign:"center",boxShadow:"0 20px 60px rgba(0,0,0,0.3)"}}>
             <div style={{fontSize:40,marginBottom:12}}>⚠️</div>
             <div style={{fontSize:17,fontWeight:700,color:"#111",marginBottom:10}}>{lang==="fr"?"N'oubliez pas !":"Don't forget!"}</div>
-            <div style={{fontSize:14,color:"#555",lineHeight:1.6,marginBottom:20}}>{stagedExpenses.length>0 ? (lang==="fr"?"Appuyez sur Tout soumettre pour envoyer vos dépenses. Les enregistrer ne les soumet pas.":"Press Submit All to send your expenses. Saving them does not submit them yet.") : pendingEntries.length>0 ? (lang==="fr"?"Appuyez sur Soumettre tout pour enregistrer vos entrées. Les ajouter à la liste ne les sauvegarde pas.":"Press Submit All to save your entries. Adding them to the list does not save them yet.") : (lang==="fr"?"Appuyez sur Soumettre la journée pour enregistrer vos heures. Pointer la sortie seule ne sauvegarde pas votre feuille de temps.":"Press Submit Today's Entry to save your hours. Clocking out alone does not save your timesheet.")}
-              <div style={{marginTop:12,paddingTop:12,borderTop:`1px solid ${C.border}`,fontSize:13,color:C.gray}}>{lang==="fr"?"Vous pourrez consulter et modifier toutes vos entrées dans l'onglet Résumé avant de finaliser et soumettre votre événement.":"You can view and modify all your entries in the Summary tab before finalizing and submitting your event."}</div>
-            </div>            <button onClick={()=>setShowSubmitReminder(false)} style={{width:"100%",padding:"14px",borderRadius:10,background:"#DC2626",color:"#fff",border:"none",cursor:"pointer",fontFamily:"inherit",fontSize:15,fontWeight:700}}>{lang==="fr"?"OK, je vais soumettre":"OK, I'll submit"}</button>
-          </div>
-        </div>
-      )}
-
-      {/* ── Confirm-before-submit Modal ── */}
-      {confirmSubmit && (
-        <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.6)",zIndex:2100,display:"flex",alignItems:"center",justifyContent:"center",padding:20}} onClick={e=>{if(e.target===e.currentTarget)setConfirmSubmit(null);}}>
-          <div style={{background:C.white,borderRadius:16,padding:24,maxWidth:400,width:"100%",boxShadow:"0 20px 60px rgba(0,0,0,0.3)",maxHeight:"80vh",display:"flex",flexDirection:"column"}}>
-            <div style={{fontSize:17,fontWeight:700,color:C.black,marginBottom:14}}>{confirmSubmit.title||t("confirmTitle")}</div>
-            <div style={{overflowY:"auto",marginBottom:20,background:C.surface,borderRadius:10,padding:"12px 14px"}}>
-              {confirmSubmit.lines.map((ln,i)=>(
-                <div key={i} style={{fontSize:14,color:C.black,lineHeight:1.7,fontWeight:ln.startsWith("•")?600:400}}>{ln}</div>
-              ))}
-            </div>
-            <div style={{display:"flex",gap:10}}>
-              <button onClick={()=>setConfirmSubmit(null)} disabled={submitting} style={{flex:1,padding:"14px",borderRadius:10,background:"transparent",border:`1.5px solid ${C.border}`,color:C.black,cursor:"pointer",fontFamily:"inherit",fontSize:15,fontWeight:700}}>{t("confirmEditBtn")}</button>
-              <button onClick={()=>{ const fn=confirmSubmit.onConfirm; setConfirmSubmit(null); fn&&fn(); }} disabled={submitting} style={{flex:1,padding:"14px",borderRadius:10,background:"#22c55e",color:"#fff",border:"none",cursor:"pointer",fontFamily:"inherit",fontSize:15,fontWeight:700}}>{t("confirmSubmitBtn")}</button>
-            </div>
+            <div style={{fontSize:14,color:"#555",lineHeight:1.6,marginBottom:20}}>{stagedExpenses.length>0 ? (lang==="fr"?"Appuyez sur Tout soumettre pour envoyer vos dépenses. Les enregistrer ne les soumet pas.":"Press Submit All to send your expenses. Saving them does not submit them yet.") : pendingEntries.length>0 ? (lang==="fr"?"Appuyez sur Soumettre tout pour enregistrer vos entrées. Les ajouter à la liste ne les sauvegarde pas.":"Press Submit All to save your entries. Adding them to the list does not save them yet.") : (lang==="fr"?"Appuyez sur Soumettre la journée pour enregistrer vos heures. Pointer la sortie seule ne sauvegarde pas votre feuille de temps.":"Press Submit Today's Entry to save your hours. Clocking out alone does not save your timesheet.")}</div>
+            <button onClick={()=>setShowSubmitReminder(false)} style={{width:"100%",padding:"14px",borderRadius:10,background:"#DC2626",color:"#fff",border:"none",cursor:"pointer",fontFamily:"inherit",fontSize:15,fontWeight:700}}>{lang==="fr"?"OK, je vais soumettre":"OK, I'll submit"}</button>
           </div>
         </div>
       )}
