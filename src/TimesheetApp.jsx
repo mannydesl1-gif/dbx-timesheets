@@ -611,8 +611,8 @@ function BulkEntryPanel({ db, allEvents, employee, C, S, lang, onClose, showToas
   const chip = (active) => ({ padding: "8px 12px", borderRadius: 8, border: `1.5px solid ${active ? C.green : C.border}`, background: active ? C.greenLight : "transparent", color: active ? C.green : C.black, fontSize: 13, fontWeight: 700, cursor: "pointer" });
 
   return (
-    <div style={{ position: "fixed", inset: 0, background: C.white, zIndex: 2050, overflowY: "auto", WebkitOverflowScrolling: "touch", paddingBottom: "calc(24px + env(safe-area-inset-bottom,0px))" }}>
-      <div style={{ position: "sticky", top: 0, background: C.white, borderBottom: `1px solid ${C.border}`, padding: "14px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", zIndex: 2 }}>
+    <div style={{ animation: "fadeIn 0.2s ease", paddingBottom: "calc(96px + env(safe-area-inset-bottom,0px))" }}>
+      <div style={{ padding: "16px 16px 0", maxWidth: 480, margin: "0 auto", boxSizing: "border-box", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
         <div style={{ fontSize: 17, fontWeight: 800, color: C.black }}>👥 {L("Saisie d'équipe", "Crew Entry")}</div>
         <button onClick={onClose} style={{ background: "transparent", border: `1px solid ${C.border}`, color: C.black, borderRadius: 8, padding: "6px 12px", fontSize: 14, fontWeight: 700, cursor: "pointer" }}>✕ {L("Fermer", "Close")}</button>
       </div>
@@ -1194,6 +1194,7 @@ export default function TimesheetApp() {
   };
 
   const goTab = (n) => {
+    setShowBulk(false);
     // Security: must be registered (PIN-verified) to access any tab beyond registration
     if(!employee && n!==1){ setTab(1); return; }
     // Per-person restriction: block the daily-log workflow (tabs 2-4) entirely.
@@ -2259,16 +2260,18 @@ export default function TimesheetApp() {
             </div>
           </div>
           <div style={{display:"flex",background:C.black==="#f1f5f9"?"#0f172a":C.black,borderBottom:`1px solid ${C.border}`}}>
-            <StepTab label={t("navDaily")} icon="📋" active={tab===2} done={tab>2} onClick={()=>goTab(2)} C={C}/>
-            {!(employee && employee.driverLog) && <StepTab label={t("navExpenses")} icon="🧾" active={tab===3} done={tab>3} onClick={()=>goTab(3)} C={C}/>}
-            {!(employee && employee.driverLog) && <StepTab label={t("navSummary")} icon="📊" active={tab===4} done={false} onClick={()=>goTab(4)} C={C}/>}
-            {canBulkEntry && <StepTab label={lang==="fr"?"Équipe":"Crew"} icon="👥" active={showBulk} done={false} onClick={()=>setShowBulk(true)} C={C}/>}
+            <StepTab label={t("navDaily")} icon="📋" active={tab===2 && !showBulk} done={tab>2} onClick={()=>goTab(2)} C={C}/>
+            {!(employee && employee.driverLog) && <StepTab label={t("navExpenses")} icon="🧾" active={tab===3 && !showBulk} done={tab>3} onClick={()=>goTab(3)} C={C}/>}
+            {!(employee && employee.driverLog) && <StepTab label={t("navSummary")} icon="📊" active={tab===4 && !showBulk} done={false} onClick={()=>goTab(4)} C={C}/>}
+            {canBulkEntry && <StepTab label={lang==="fr"?"Équipe":"Crew"} icon="👥" active={showBulk} done={false} onClick={()=>{ setShowBulk(true); window.scrollTo(0,0); }} C={C}/>}
             {employee && <StepTab label={t("navLogout")} icon="🚪" active={false} done={false} onClick={doLogout} C={C}/>}
           </div>
         </div>
       ) : null}
       {/* Spacer so content clears the fixed header+nav zone (login screen has no fixed zone) */}
       {employee && !employee.logRestricted && tab<=4&&<div style={{height:112}}/>}
+      {/* ── Crew Entry (supervisors) — shown in the content area under the header + tabs ── */}
+      {showBulk && employee && canBulkEntry && tab<=4 && <BulkEntryPanel db={db} allEvents={allEvents} employee={employee} C={C} S={S} lang={lang} onClose={()=>{ setShowBulk(false); window.scrollTo(0,0); }} showToast={showToast}/>}
 
 
 
@@ -2370,7 +2373,7 @@ export default function TimesheetApp() {
       </div>}
 
       {/* ── Screen 2: Hours ── */}
-      {tab===2&&<div style={S.screen}>
+      {tab===2&&!showBulk&&<div style={S.screen}>
         {/* Prominent name display */}
         {employee&&<div style={{background:"#0369a1",borderRadius:10,padding:"14px 16px",marginBottom:20,display:"flex",alignItems:"center",gap:12}}>
           <div style={{width:36,height:36,borderRadius:"50%",background:"rgba(255,255,255,0.2)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:16,fontWeight:700,color:"#fff",flexShrink:0}}>
@@ -2948,7 +2951,7 @@ export default function TimesheetApp() {
       </div>}
 
       {/* ── Screen 3: Expenses ── */}
-      {tab===3&&<div style={S.screen}>
+      {tab===3&&!showBulk&&<div style={S.screen}>
         <EmpTag/>
         <div style={S.title}>{t("expenseTitle")}</div>
         <div style={S.sub}>{t("expenseSub")}</div>
@@ -3024,7 +3027,7 @@ export default function TimesheetApp() {
       </div>}
 
       {/* ── Screen 4: Summary ── */}
-      {tab===4&&<div style={S.screen}>
+      {tab===4&&!showBulk&&<div style={S.screen}>
         <EmpTag/>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4}}>
           <div style={S.title}>{t("summaryTitle")}</div>
@@ -3767,7 +3770,6 @@ export default function TimesheetApp() {
         })}
       </div>}
 
-      {showBulk && <BulkEntryPanel db={db} allEvents={allEvents} employee={employee} C={C} S={S} lang={lang} onClose={()=>setShowBulk(false)} showToast={showToast}/>}
       <div style={{position:"fixed",bottom:90,left:"50%",transform:`translateX(-50%) translateY(${toast.show?0:20}px)`,background:toast.error?"#991b1b":C.green||"#16a34a",color:"#fff",padding:"14px 28px",borderRadius:12,fontSize:15,fontWeight:700,display:"flex",alignItems:"center",gap:10,opacity:toast.show?1:0,transition:"all 0.3s",pointerEvents:"none",whiteSpace:"nowrap",zIndex:999,boxShadow:"0 4px 24px rgba(0,0,0,0.3)"}}>
         <span style={{fontSize:18}}>{toast.error?"❌":"✅"}</span>
         {toast.msg}
