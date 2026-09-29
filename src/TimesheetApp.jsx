@@ -534,11 +534,15 @@ function BulkEntryPanel({ db, allEvents, employee, C, S, lang, onClose, showToas
   // Category split — mirrors dispatch: ground crew = Employee AND not Driver.
   // Optional crew list assigned to the event in dispatch (roster record ids)
   const crewSet = new Set(evObj && Array.isArray(evObj.crewIds) ? evObj.crewIds : []);
-  const inCategory = p => !p.isSupplier && (category === "drivers" ? (p.isDriver !== false) : (p.isEmployee === true && p.isDriver !== true));
+  // Everyone lands in exactly one tab: Employees = not a driver (Employee ticked with Driver
+  // unticked, or Driver unticked); Drivers = everyone else. (Same rule as dispatch's Crew Entry.)
+  const isEmpCat = p => p.isDriver === false || (p.isEmployee === true && p.isDriver !== true);
+  const inCategory = p => !p.isSupplier && (category === "employees" ? isEmpCat(p) : !isEmpCat(p));
   const roster = people
     .filter(inCategory)
     .sort((a, b) => (a.name || "").localeCompare(b.name || ""));
   const crewInCat = roster.filter(p => crewSet.has(p.id));
+  const crewOtherTab = people.filter(p => !p.isSupplier && crewSet.has(p.id) && !inCategory(p)).length;
   // If the event has a crew in this category, the list offers only them; otherwise everyone.
   const crewOnly = crewInCat.length > 0 && !showAll;
   const pool = crewOnly ? crewInCat : roster;
@@ -709,6 +713,13 @@ function BulkEntryPanel({ db, allEvents, employee, C, S, lang, onClose, showToas
               </label>
             ))}
         </div>
+        {crewOtherTab > 0 && (
+          <button onClick={() => { setCategory(category === "drivers" ? "employees" : "drivers"); setSelected({}); setSearch(""); }}
+            style={{ display: "block", background: "transparent", border: "none", color: "#d97706", fontSize: 12, fontWeight: 700, cursor: "pointer", padding: "2px 0", marginBottom: 6 }}>
+            {L(`+ ${crewOtherTab} autre(s) de l'équipe sous ${category === "drivers" ? "Employés" : "Chauffeurs"} — changer`,
+               `+ ${crewOtherTab} more of this event's crew under ${category === "drivers" ? "Employees" : "Drivers"} — switch`)}
+          </button>
+        )}
         {crewInCat.length > 0 && (
           <button onClick={() => setShowAll(v => !v)} style={{ background: "transparent", border: "none", color: C.gray, fontSize: 12, fontWeight: 700, cursor: "pointer", padding: "2px 0", marginBottom: 12 }}>
             {showAll ? L("← Seulement l'équipe de l'événement", "← Event crew only") : L("Quelqu'un d'autre ? Afficher tout le monde", "Someone else? Show everyone")}
