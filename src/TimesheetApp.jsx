@@ -474,6 +474,8 @@ function BulkEntryPanel({ db, allEvents, employee, C, S, lang, onClose, showToas
   const [loadingPeople, setLoadingPeople] = useState(true);
   const [selected, setSelected] = useState({});
   const [search, setSearch] = useState("");
+  const [listOpen, setListOpen] = useState(false); // name list appears when the search box is tapped
+  const [showAll, setShowAll] = useState(false);   // override: show everyone even if the event has a crew
   const [primaryType, setPrimaryType] = useState("");   // one day type (optional)
   const [addPerDiem, setAddPerDiem] = useState(false);  // stackable add-ons
   const [addTrip, setAddTrip] = useState(false);
@@ -504,17 +506,15 @@ function BulkEntryPanel({ db, allEvents, employee, C, S, lang, onClose, showToas
   const inCategory = p => !p.isSupplier && (category === "drivers" ? (p.isDriver !== false) : (p.isEmployee === true && p.isDriver !== true));
   const roster = people
     .filter(inCategory)
-    .sort((a, b) => (crewSet.has(b.id) - crewSet.has(a.id)) || (a.name || "").localeCompare(b.name || ""));
+    .sort((a, b) => (a.name || "").localeCompare(b.name || ""));
   const crewInCat = roster.filter(p => crewSet.has(p.id));
-  const selectEventCrew = () => { const ns = {}; crewInCat.forEach(p => ns[p.id] = true); setSelected(ns); };
-  // Pre-select the event crew whenever the event or category changes (supervisor unticks absentees)
-  useEffect(() => {
-    if (loadingPeople || crewSet.size === 0) return;
-    const ns = {}; people.filter(p => inCategory(p) && crewSet.has(p.id)).forEach(p => ns[p.id] = true);
-    setSelected(ns);
-  }, [event, category, loadingPeople]); // eslint-disable-line
+  // If the event has a crew in this category, the list offers only them; otherwise everyone.
+  const crewOnly = crewInCat.length > 0 && !showAll;
+  const pool = crewOnly ? crewInCat : roster;
+  // Collapse the list and drop the override whenever the event or category changes
+  useEffect(() => { setListOpen(false); setShowAll(false); }, [event, category]);
   const selCount = roster.filter(p => selected[p.id]).length;
-  const shown = roster.filter(p => !search.trim() || (p.name || "").toLowerCase().includes(search.trim().toLowerCase()));
+  const shown = pool.filter(p => !search.trim() || (p.name || "").toLowerCase().includes(search.trim().toLowerCase()));
   const allSel = shown.length > 0 && shown.every(p => selected[p.id]);
   const toggleAll = () => { const ns = { ...selected }; if (allSel) shown.forEach(p => delete ns[p.id]); else shown.forEach(p => ns[p.id] = true); setSelected(ns); };
 
@@ -650,16 +650,21 @@ function BulkEntryPanel({ db, allEvents, employee, C, S, lang, onClose, showToas
         {/* People */}
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
           <div style={{ fontSize: 11, fontWeight: 700, color: C.gray, textTransform: "uppercase", letterSpacing: "0.05em" }}>{L("Qui", "Who")} {selCount > 0 && <span style={{ color: C.green }}>· {selCount}</span>}</div>
-          {shown.length > 0 && <button onClick={toggleAll} style={{ background: "transparent", border: "none", color: C.green, fontSize: 12, fontWeight: 700, cursor: "pointer" }}>{allSel ? L("Tout décocher", "Clear all") : L("Tout sélectionner", "Select all")}</button>}
+          {listOpen && (
+            <div style={{ display: "flex", gap: 14 }}>
+              {shown.length > 0 && <button onClick={toggleAll} style={{ background: "transparent", border: "none", color: C.green, fontSize: 12, fontWeight: 700, cursor: "pointer" }}>{allSel ? L("Tout décocher", "Clear all") : L("Tout sélectionner", "Select all")}</button>}
+              <button onClick={() => { setListOpen(false); setSearch(""); }} style={{ background: "transparent", border: "none", color: C.black, fontSize: 12, fontWeight: 800, cursor: "pointer" }}>{L("Terminé", "Done")}</button>
+            </div>
+          )}
         </div>
-        {crewInCat.length > 0 && (
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, background: C.greenLight, border: `1px solid ${C.green}`, borderRadius: 8, padding: "8px 10px", marginBottom: 8 }}>
-            <div style={{ fontSize: 12, color: C.green, fontWeight: 700 }}>★ {L(`Équipe de l'événement : ${crewInCat.length} présélectionné(s) — décochez les absents`, `Event crew: ${crewInCat.length} pre-selected — untick anyone not working`)}</div>
-            <button onClick={selectEventCrew} style={{ background: "transparent", border: "none", color: C.green, fontSize: 12, fontWeight: 800, cursor: "pointer", whiteSpace: "nowrap" }}>{L("Réappliquer", "Reapply")}</button>
-          </div>
-        )}
-        <FocusInput type="text" value={search} onChange={e => setSearch(e.target.value)} placeholder={L("Rechercher un nom…", "Search a name…")} autoCapitalize="none" style={{ marginBottom: 8 }} />
-        <div style={{ border: `1px solid ${C.border}`, borderRadius: 8, maxHeight: 240, overflowY: "auto", marginBottom: 16 }}>
+        <div style={{ position: "relative", marginBottom: 8 }}>
+          <FocusInput type="text" value={search} onClick={() => setListOpen(true)} onChange={e => { setSearch(e.target.value); setListOpen(true); }}
+            placeholder={crewOnly ? L(`Rechercher dans l'équipe de l'événement (${crewInCat.length})…`, `Search event crew (${crewInCat.length})…`) : L("Rechercher un nom…", "Search a name…")}
+            autoCapitalize="none" style={{ paddingRight: 36 }} />
+          {search && <button onClick={() => setSearch("")} aria-label="clear" style={{ position: "absolute", right: 8, top: "50%", transform: "translateY(-50%)", background: "transparent", border: "none", color: C.gray, fontSize: 18, cursor: "pointer", padding: 4 }}>✕</button>}
+        </div>
+        {listOpen && <>
+        <div style={{ border: `1px solid ${C.border}`, borderRadius: 8, maxHeight: 240, overflowY: "auto", marginBottom: 8 }}>
           {loadingPeople ? <div style={{ padding: 14, fontSize: 13, color: C.gray }}>{L("Chargement…", "Loading…")}</div>
             : roster.length === 0 ? <div style={{ padding: 14, fontSize: 13, color: C.gray }}>{L("Personne dans cette catégorie.", "No one in this category.")}</div>
             : shown.length === 0 ? <div style={{ padding: 14, fontSize: 13, color: C.gray }}>{L("Aucun résultat.", "No match.")}</div>
@@ -667,10 +672,17 @@ function BulkEntryPanel({ db, allEvents, employee, C, S, lang, onClose, showToas
               <label key={p.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderBottom: `1px solid ${C.border}`, cursor: "pointer" }}>
                 <input type="checkbox" checked={!!selected[p.id]} onChange={e => setSelected(s => ({ ...s, [p.id]: e.target.checked }))} style={{ width: 18, height: 18 }} />
                 <span style={{ fontSize: 14, color: C.black }}>{p.name}</span>
-                {crewSet.has(p.id) && <span style={{ marginLeft: "auto", fontSize: 11, color: C.green, fontWeight: 700 }}>★ {L("équipe", "crew")}</span>}
+                {!crewOnly && crewSet.has(p.id) && <span style={{ marginLeft: "auto", fontSize: 11, color: C.green, fontWeight: 700 }}>★ {L("équipe", "crew")}</span>}
               </label>
             ))}
         </div>
+        {crewInCat.length > 0 && (
+          <button onClick={() => setShowAll(v => !v)} style={{ background: "transparent", border: "none", color: C.gray, fontSize: 12, fontWeight: 700, cursor: "pointer", padding: "2px 0", marginBottom: 12 }}>
+            {showAll ? L("← Seulement l'équipe de l'événement", "← Event crew only") : L("Quelqu'un d'autre ? Afficher tout le monde", "Someone else? Show everyone")}
+          </button>
+        )}
+        </>}
+        {!listOpen && <div style={{ marginBottom: 12 }} />}
 
         {/* Selected — stays visible while you keep searching/selecting */}
         {selCount > 0 && (
