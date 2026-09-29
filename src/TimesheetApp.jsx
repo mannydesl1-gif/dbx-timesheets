@@ -2050,7 +2050,8 @@ export default function TimesheetApp() {
   useEffect(()=>{ if(employee && employee.logRestricted===true && tab>=2 && tab<=4) setTab(5); },[employee, tab]);
   useEffect(()=>{ if(employee && employee.driverLog===true && (tab===3||tab===4)) setTab(2); },[employee, tab]);
 
-  // ── Auto-logoff after 12 hours of inactivity (security) ──
+  // ── Auto-logoff after 36 hours of inactivity (security) ──
+  // 36h covers a full 24-hour shift (e.g. day-logged events with no clock-in) with room to spare.
   // Clears the saved employee session so re-entry requires PIN again.
   // Clock-in data persists server-side (sessions collection), so an
   // in-progress shift can still be resumed after re-registering.
@@ -2058,11 +2059,12 @@ export default function TimesheetApp() {
     ["cargodx_employee","cargodx_clockin_start","cargodx_clockin_end","cargodx_clockin_date",
      "cargodx_clockin_truck","cargodx_clockin_trailer","cargodx_clockin_kmstart","cargodx_clockin_kmend",
      "cargodx_clockin_event","cargodx_clockin_break","cargodx_unitlog","cargodx_tab","cargodx_last_activity"].forEach(k=>localStorage.removeItem(k));
+    signOut(_auth).catch(()=>{});   // end the server sign-in too, same as the Log out button
     setEmployee(null);
     setTab(1);
     alert(lang==="fr"
-      ? "Vous avez été déconnecté après 12 heures d'inactivité. Veuillez vous réidentifier."
-      : "You've been logged out after 12 hours of inactivity. Please sign in again.");
+      ? "Vous avez été déconnecté après 36 heures d'inactivité. Veuillez vous réidentifier. Un quart de travail en cours pourra être repris."
+      : "You've been logged out after 36 hours of inactivity. Please sign in again — a shift in progress can be resumed.");
   };
 
   useEffect(() => {
@@ -2071,7 +2073,7 @@ export default function TimesheetApp() {
     // be interrupted, and the phone may sit untouched for hours mid-shift. The idle
     // timer resumes automatically once they clock out (clockedIn is a dependency).
     if (clockedIn) return;
-    const TIMEOUT_MS = 12 * 60 * 60 * 1000; // 12 hours
+    const TIMEOUT_MS = 36 * 60 * 60 * 1000; // 36 hours
     let timer = null;
     const reset = () => {
       if (timer) clearTimeout(timer);
