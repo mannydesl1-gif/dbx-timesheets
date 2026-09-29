@@ -499,9 +499,20 @@ function BulkEntryPanel({ db, allEvents, employee, C, S, lang, onClose, showToas
   })(); }, []); // eslint-disable-line
 
   // Category split — mirrors dispatch: ground crew = Employee AND not Driver.
+  // Optional crew list assigned to the event in dispatch (roster record ids)
+  const crewSet = new Set(evObj && Array.isArray(evObj.crewIds) ? evObj.crewIds : []);
+  const inCategory = p => category === "drivers" ? (p.isDriver !== false) : (p.isEmployee === true && p.isDriver !== true);
   const roster = people
-    .filter(p => category === "drivers" ? (p.isDriver !== false) : (p.isEmployee === true && p.isDriver !== true))
-    .sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+    .filter(inCategory)
+    .sort((a, b) => (crewSet.has(b.id) - crewSet.has(a.id)) || (a.name || "").localeCompare(b.name || ""));
+  const crewInCat = roster.filter(p => crewSet.has(p.id));
+  const selectEventCrew = () => { const ns = {}; crewInCat.forEach(p => ns[p.id] = true); setSelected(ns); };
+  // Pre-select the event crew whenever the event or category changes (supervisor unticks absentees)
+  useEffect(() => {
+    if (loadingPeople || crewSet.size === 0) return;
+    const ns = {}; people.filter(p => inCategory(p) && crewSet.has(p.id)).forEach(p => ns[p.id] = true);
+    setSelected(ns);
+  }, [event, category, loadingPeople]); // eslint-disable-line
   const selCount = roster.filter(p => selected[p.id]).length;
   const shown = roster.filter(p => !search.trim() || (p.name || "").toLowerCase().includes(search.trim().toLowerCase()));
   const allSel = shown.length > 0 && shown.every(p => selected[p.id]);
@@ -641,6 +652,12 @@ function BulkEntryPanel({ db, allEvents, employee, C, S, lang, onClose, showToas
           <div style={{ fontSize: 11, fontWeight: 700, color: C.gray, textTransform: "uppercase", letterSpacing: "0.05em" }}>{L("Qui", "Who")} {selCount > 0 && <span style={{ color: C.green }}>· {selCount}</span>}</div>
           {shown.length > 0 && <button onClick={toggleAll} style={{ background: "transparent", border: "none", color: C.green, fontSize: 12, fontWeight: 700, cursor: "pointer" }}>{allSel ? L("Tout décocher", "Clear all") : L("Tout sélectionner", "Select all")}</button>}
         </div>
+        {crewInCat.length > 0 && (
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, background: C.greenLight, border: `1px solid ${C.green}`, borderRadius: 8, padding: "8px 10px", marginBottom: 8 }}>
+            <div style={{ fontSize: 12, color: C.green, fontWeight: 700 }}>★ {L(`Équipe de l'événement : ${crewInCat.length} présélectionné(s) — décochez les absents`, `Event crew: ${crewInCat.length} pre-selected — untick anyone not working`)}</div>
+            <button onClick={selectEventCrew} style={{ background: "transparent", border: "none", color: C.green, fontSize: 12, fontWeight: 800, cursor: "pointer", whiteSpace: "nowrap" }}>{L("Réappliquer", "Reapply")}</button>
+          </div>
+        )}
         <FocusInput type="text" value={search} onChange={e => setSearch(e.target.value)} placeholder={L("Rechercher un nom…", "Search a name…")} autoCapitalize="none" style={{ marginBottom: 8 }} />
         <div style={{ border: `1px solid ${C.border}`, borderRadius: 8, maxHeight: 240, overflowY: "auto", marginBottom: 16 }}>
           {loadingPeople ? <div style={{ padding: 14, fontSize: 13, color: C.gray }}>{L("Chargement…", "Loading…")}</div>
@@ -650,6 +667,7 @@ function BulkEntryPanel({ db, allEvents, employee, C, S, lang, onClose, showToas
               <label key={p.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderBottom: `1px solid ${C.border}`, cursor: "pointer" }}>
                 <input type="checkbox" checked={!!selected[p.id]} onChange={e => setSelected(s => ({ ...s, [p.id]: e.target.checked }))} style={{ width: 18, height: 18 }} />
                 <span style={{ fontSize: 14, color: C.black }}>{p.name}</span>
+                {crewSet.has(p.id) && <span style={{ marginLeft: "auto", fontSize: 11, color: C.green, fontWeight: 700 }}>★ {L("équipe", "crew")}</span>}
               </label>
             ))}
         </div>
