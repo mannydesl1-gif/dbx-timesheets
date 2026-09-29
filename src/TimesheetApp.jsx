@@ -534,10 +534,12 @@ function BulkEntryPanel({ db, allEvents, employee, C, S, lang, onClose, showToas
   // Category split — mirrors dispatch: ground crew = Employee AND not Driver.
   // Optional crew list assigned to the event in dispatch (roster record ids)
   const crewSet = new Set(evObj && Array.isArray(evObj.crewIds) ? evObj.crewIds : []);
-  // Everyone lands in exactly one tab: Employees = not a driver (Employee ticked with Driver
-  // unticked, or Driver unticked); Drivers = everyone else. (Same rule as dispatch's Crew Entry.)
-  const isEmpCat = p => p.isDriver === false || (p.isEmployee === true && p.isDriver !== true);
-  const inCategory = p => !p.isSupplier && (category === "employees" ? isEmpCat(p) : !isEmpCat(p));
+  // Drivers tab = Driver ticked (or nothing ticked — the default); Employees tab = Employee
+  // ticked or Driver unticked. Someone ticked as BOTH shows in both tabs; nobody is left out.
+  // (Same rule as dispatch's Crew Entry.)
+  const isDrvCat = p => p.isDriver === true || (p.isDriver === undefined && p.isEmployee !== true);
+  const isEmpCat = p => p.isEmployee === true || p.isDriver === false;
+  const inCategory = p => !p.isSupplier && (category === "employees" ? isEmpCat(p) : isDrvCat(p));
   const roster = people
     .filter(inCategory)
     .sort((a, b) => (a.name || "").localeCompare(b.name || ""));
