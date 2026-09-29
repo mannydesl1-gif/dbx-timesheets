@@ -501,7 +501,7 @@ function BulkEntryPanel({ db, allEvents, employee, C, S, lang, onClose, showToas
   // Category split — mirrors dispatch: ground crew = Employee AND not Driver.
   // Optional crew list assigned to the event in dispatch (roster record ids)
   const crewSet = new Set(evObj && Array.isArray(evObj.crewIds) ? evObj.crewIds : []);
-  const inCategory = p => category === "drivers" ? (p.isDriver !== false) : (p.isEmployee === true && p.isDriver !== true);
+  const inCategory = p => !p.isSupplier && (category === "drivers" ? (p.isDriver !== false) : (p.isEmployee === true && p.isDriver !== true));
   const roster = people
     .filter(inCategory)
     .sort((a, b) => (crewSet.has(b.id) - crewSet.has(a.id)) || (a.name || "").localeCompare(b.name || ""));
