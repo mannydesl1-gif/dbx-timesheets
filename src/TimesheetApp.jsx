@@ -117,6 +117,7 @@ const T = {
     loginErrLocked: (m) => `Trop d'essais. Réessayez dans ${m} minute(s), ou contactez votre gestionnaire.`,
     loginErrNoPin: "Aucun NIP n'est défini pour votre compte. Demandez à votre gestionnaire d'en créer un.",
     loginErrServer: "Connexion impossible pour le moment. Vérifiez votre connexion Internet et réessayez.",
+    reloginMsg: "Mise à jour de sécurité : veuillez vous reconnecter une fois avec votre ID et votre NIP.",
     loginErrEmpty: "Veuillez entrer votre ID employé et votre NIP.",
     welcomeBack: (n) => `👋 Bon retour, ${n} ! Vos infos sont sauvegardées.`,
     fullName: "Nom complet", phone: "Numéro de téléphone", email: "Adresse courriel", event: "Événement",
@@ -218,6 +219,7 @@ const T = {
     loginErrLocked: (m) => `Too many tries. Try again in ${m} minute${m === 1 ? "" : "s"}, or contact your manager.`,
     loginErrNoPin: "No PIN is set for your account yet. Ask your manager to create one.",
     loginErrServer: "Can't sign in right now. Check your internet connection and try again.",
+    reloginMsg: "Security update: please sign in once more with your ID and PIN.",
     loginErrEmpty: "Please enter your Employee ID and PIN.",
     welcomeBack: (n) => `👋 Welcome back, ${n}! Your info is saved.`,
     fullName: "Full name", phone: "Phone number", email: "Email address", event: "Event",
@@ -602,6 +604,7 @@ function BulkEntryPanel({ db, allEvents, employee, C, S, lang, onClose, showToas
       const enteredBy = employee?.name || employee?.email || "supervisor";
       const buildRec = (p, ty) => {
         const rec = {
+          drvId: p.id,
           employeeName: p.name, employeePhone: p.phone || "", employeeEmail: p.email || "",
           event, subEvent: subEvent || null, date,
           startTime: ty === "hours" ? startTime : "00:00",
@@ -1060,12 +1063,7 @@ export default function TimesheetApp() {
 
     // ── Session sync on page load/refresh ──
     if(employee) {
-      const keysToTry = [
-        employee.email?.trim(),
-        employee.phone?.trim().replace(/\D/g,""),
-        employee.key?.trim(),
-        employee.name?.trim().replace(/\s/g,"").toLowerCase(),
-      ].filter(Boolean);
+      const keysToTry = [employee.key?.trim()].filter(Boolean);
       (async () => {
         for(const k of keysToTry) {
           try {
@@ -1120,11 +1118,9 @@ export default function TimesheetApp() {
     if(!employee) return;
     setLoadingData(true);
     try {
-      const filters = [];
-      if(employee.email) filters.push(where("employeeEmail","==",employee.email));
-      if(employee.phone) filters.push(where("employeePhone","==",employee.phone.replace(/\D/g,"")));
-      if(employee.name) filters.push(where("employeeName","==",employee.name));
-      if(filters.length===0) { setLoadingData(false); return; }
+      // Own records only, by owner id (tagged at login + by the server for dispatch-made entries)
+      if(!employee.drvId) { setLoadingData(false); return; }
+      const filters = [where("drvId","==",employee.drvId)];
 
       const merge = (snaps) => {
         const seen = new Set();
@@ -1165,25 +1161,13 @@ export default function TimesheetApp() {
 
   const restoreFromDevice = async () => {
     if(!employee) return;
-    const keysToTry = [
-      employee.email?.trim(),
-      employee.phone?.trim().replace(/\D/g,""),
-      employee.key?.trim(),
-      employee.name?.trim().replace(/\s/g,"").toLowerCase(),
-    ].filter(Boolean);
+    const keysToTry = [employee.key?.trim()].filter(Boolean);
     if(!keysToTry.length) return;
     try {
       let snap = null;
       for(const k of keysToTry) {
         const s = await getDoc(doc(db,"sessions",k));
         if(s.exists() && (s.data().clockIn || s.data().truck)) { snap = s; break; }
-      }
-      if(!snap) {
-        const nameSnap = await getDocs(query(collection(db,"sessions"), where("name","==",employee.name?.trim())));
-        if(!nameSnap.empty) {
-          const found = nameSnap.docs.find(d => d.data().clockIn || d.data().truck);
-          if(found) snap = found;
-        }
       }
       if(!snap) { showToast(lang==="fr"?"Aucune session active trouvée":"No active session found", true); return; }
       const s = snap.data();
@@ -1240,6 +1224,25 @@ export default function TimesheetApp() {
     if(n===7) loadCompanyDocs();
   };
 
+  // ── Security update: a saved profile must be backed by a current server sign-in ──
+  // (anonymous session, an older sign-in without the owner claims, or a mismatch → sign in again once)
+  useEffect(() => {
+    if (!savedEmployee) return;
+    (async () => {
+      await authReadyPromise;
+      const u = _auth.currentUser;
+      let ok = false;
+      try { if (u && !u.isAnonymous) { const c = (await u.getIdTokenResult()).claims; ok = c.v === 2 && c.drvId && c.drvId === savedEmployee.drvId; } } catch (e) {}
+      if (!ok) {
+        localStorage.removeItem("cargodx_employee");   // clock-in details stay; they come back after sign-in
+        signOut(_auth).catch(()=>{});
+        setEmployee(null);
+        setTab(1);
+        showToast(t("reloginMsg"));
+      }
+    })();
+  }, []); // eslint-disable-line
+
   // ── One-time drvId patch for sessions saved before June 2026 ──
   // If employee is restored from localStorage but has no drvId (old session format),
   // silently look it up from the drivers collection so order matching works.
@@ -1255,10 +1258,6 @@ export default function TimesheetApp() {
           // Normal case: read only this person's own record
           const own = await getDoc(doc(db, "drivers", savedEmployee.drvId));
           if (own.exists()) match = own;
-        } else {
-          // Very old saved session (pre-June 2026, no drvId): one-time lookup
-          const snap = await getDocs(collection(db, "drivers"));
-          match = snap.docs.find(d => String(d.data().employeeId || "").trim().toLowerCase() === empKey) || null;
         }
         if (match) {
           // Archived after they logged in — kick the cached session so they
@@ -1323,9 +1322,10 @@ export default function TimesheetApp() {
     setOrdersLoading(true);
     setOrdersError("");
     try {
+      if(!employee.drvId) { setOrders([]); setOrdersLoading(false); return; }
       const snap = await getDocs(query(
         collection(db, "orders"),
-        where("status", "in", ["assigned", "in-transit"])
+        where("appDrvIds", "array-contains", employee.drvId)   // server sets this while the order is active + pushed to app
       ));
       const all = snap.docs.map(d => ({id: d.id, ...d.data()}));
       const myEmail = (employee.email||"").trim().toLowerCase();
@@ -1677,7 +1677,7 @@ export default function TimesheetApp() {
 
   const hasDayEntry = async (type) => {
     try {
-      const snap = await getDocs(query(collection(db,"timesheets"), where("employeeEmail","==",employee.email), where("date","==",logDate)));
+      const snap = await getDocs(query(collection(db,"timesheets"), where("drvId","==",employee.drvId||"-"), where("date","==",logDate)));
       if(type==="hours") {
         // Any entry with real start/end times that isn't a day-type entry
         return snap.docs.some(d => {
@@ -1706,22 +1706,22 @@ export default function TimesheetApp() {
           if(await hasDayEntry("working-day")){showToast(lang==="fr"?"Journée déjà enregistrée":"Already registered",true);continue;}
           if(await hasDayEntry("non-working")){showToast(lang==="fr"?"Jour non travaillé existe déjà":"Non-working day exists",true);continue;}
           if(await hasDayEntry("travel-day")){showToast(lang==="fr"?"Jour de déplacement existe déjà":"Traveling day exists",true);continue;}
-          await addDoc(collection(db,"timesheets"),{employeeName:employee.name,employeePhone:employee.phone,employeeEmail:employee.email,event:shiftEvent||employee.event,subEvent:shiftSubEvent||null,date:entryDate,notes:logNotes.trim()||null,dayType:"working-day",numDays:1,submittedAt:new Date().toISOString()});
+          await addDoc(collection(db,"timesheets"),{drvId:employee.drvId||null,employeeName:employee.name,employeePhone:employee.phone,employeeEmail:employee.email,event:shiftEvent||employee.event,subEvent:shiftSubEvent||null,date:entryDate,notes:logNotes.trim()||null,dayType:"working-day",numDays:1,submittedAt:new Date().toISOString()});
         } else if(entry.type==="non-working") {
           if(await hasDayEntry("non-working")){showToast(lang==="fr"?"Déjà enregistré":"Already registered",true);continue;}
           if(await hasDayEntry("working-day")){showToast(lang==="fr"?"Journée de travail existe déjà":"Working day exists",true);continue;}
           if(await hasDayEntry("travel-day")){showToast(lang==="fr"?"Jour de déplacement existe déjà":"Traveling day exists",true);continue;}
-          await addDoc(collection(db,"timesheets"),{employeeName:employee.name,employeePhone:employee.phone,employeeEmail:employee.email,event:shiftEvent||employee.event,subEvent:shiftSubEvent||null,date:entryDate,notes:logNotes.trim()||null,dayType:"non-working",submittedAt:new Date().toISOString()});
+          await addDoc(collection(db,"timesheets"),{drvId:employee.drvId||null,employeeName:employee.name,employeePhone:employee.phone,employeeEmail:employee.email,event:shiftEvent||employee.event,subEvent:shiftSubEvent||null,date:entryDate,notes:logNotes.trim()||null,dayType:"non-working",submittedAt:new Date().toISOString()});
         } else if(entry.type==="travel-day") {
           if(await hasDayEntry("travel-day")){showToast(lang==="fr"?"Jour de déplacement déjà enregistré":"Traveling day already registered",true);continue;}
           if(await hasDayEntry("working-day")){showToast(lang==="fr"?"Journée de travail existe déjà":"Working day exists",true);continue;}
           if(await hasDayEntry("non-working")){showToast(lang==="fr"?"Jour non travaillé existe déjà":"Non-working day exists",true);continue;}
-          await addDoc(collection(db,"timesheets"),{employeeName:employee.name,employeePhone:employee.phone,employeeEmail:employee.email,event:shiftEvent||employee.event,subEvent:shiftSubEvent||null,date:entryDate,notes:logNotes.trim()||null,dayType:"travel-day",numTravelDays:1,submittedAt:new Date().toISOString()});
+          await addDoc(collection(db,"timesheets"),{drvId:employee.drvId||null,employeeName:employee.name,employeePhone:employee.phone,employeeEmail:employee.email,event:shiftEvent||employee.event,subEvent:shiftSubEvent||null,date:entryDate,notes:logNotes.trim()||null,dayType:"travel-day",numTravelDays:1,submittedAt:new Date().toISOString()});
         } else if(entry.type==="per-diem") {
           if(await hasDayEntry("per-diem")){showToast(lang==="fr"?"Per diem déjà enregistré":"Per diem already registered",true);continue;}
-          await addDoc(collection(db,"timesheets"),{employeeName:employee.name,employeePhone:employee.phone,employeeEmail:employee.email,event:shiftEvent||employee.event,subEvent:shiftSubEvent||null,date:entryDate,notes:logNotes.trim()||null,dayType:"per-diem",numPerDiem:1,submittedAt:new Date().toISOString()});
+          await addDoc(collection(db,"timesheets"),{drvId:employee.drvId||null,employeeName:employee.name,employeePhone:employee.phone,employeeEmail:employee.email,event:shiftEvent||employee.event,subEvent:shiftSubEvent||null,date:entryDate,notes:logNotes.trim()||null,dayType:"per-diem",numPerDiem:1,submittedAt:new Date().toISOString()});
         } else if(entry.type==="trip") {
-          await addDoc(collection(db,"timesheets"),{employeeName:employee.name,employeePhone:employee.phone,employeeEmail:employee.email,event:shiftEvent||employee.event,subEvent:shiftSubEvent||null,date:entryDate,notes:logNotes.trim()||null,dayType:"trip",numTrips:parseInt(tripCount)||1,submittedAt:new Date().toISOString()});
+          await addDoc(collection(db,"timesheets"),{drvId:employee.drvId||null,employeeName:employee.name,employeePhone:employee.phone,employeeEmail:employee.email,event:shiftEvent||employee.event,subEvent:shiftSubEvent||null,date:entryDate,notes:logNotes.trim()||null,dayType:"trip",numTrips:parseInt(tripCount)||1,submittedAt:new Date().toISOString()});
         }
       }
       setPendingEntries([]);
@@ -1741,7 +1741,7 @@ export default function TimesheetApp() {
     if(!shiftEvent) { alert(lang==="fr"?"Veuillez sélectionner un événement.":"Please select an event."); return; }
     if(!window.confirm(lang==="fr"?`Enregistrer un jour NON TRAVAILLÉ pour ${logDate} — ${shiftEvent} ?`:`Register a NON-WORKING day for ${logDate} — ${shiftEvent}?`)) return;
     try {
-      await addDoc(collection(db,"timesheets"),{
+      await addDoc(collection(db,"timesheets"),{drvId:employee.drvId||null,
         employeeName:employee.name, employeePhone:employee.phone, employeeEmail:employee.email,
         event:shiftEvent||employee.event, subEvent:shiftSubEvent||null, date:logDate,
         startTime:"00:00", endTime:"00:00", hours:0,
@@ -1761,7 +1761,7 @@ export default function TimesheetApp() {
     if(!shiftEvent) { alert(lang==="fr"?"Veuillez sélectionner un événement.":"Please select an event."); return; }
     if(!window.confirm(lang==="fr"?`Enregistrer un PER DIEM pour ${logDate} — ${shiftEvent} ?`:`Register a PER DIEM day for ${logDate} — ${shiftEvent}?`)) return;
     try {
-      await addDoc(collection(db,"timesheets"),{
+      await addDoc(collection(db,"timesheets"),{drvId:employee.drvId||null,
         employeeName:employee.name, employeePhone:employee.phone, employeeEmail:employee.email,
         event:shiftEvent||employee.event, subEvent:shiftSubEvent||null, date:logDate,
         startTime:"00:00", endTime:"00:00", hours:0,
@@ -1779,7 +1779,7 @@ export default function TimesheetApp() {
     const tripCount = prompt(lang==="fr"?"Combien de trajets avez-vous fait aujourd'hui?":"How many trips did you make today?", "1");
     if(!tripCount || isNaN(tripCount) || parseInt(tripCount) <= 0) return;
     try {
-      await addDoc(collection(db,"timesheets"),{
+      await addDoc(collection(db,"timesheets"),{drvId:employee.drvId||null,
         employeeName:employee.name, employeePhone:employee.phone, employeeEmail:employee.email,
         event:shiftEvent||employee.event, subEvent:shiftSubEvent||null, date:logDate,
         startTime:"00:00", endTime:"00:00", hours:0,
@@ -1800,7 +1800,7 @@ export default function TimesheetApp() {
     if(!shiftEvent) { alert(lang==="fr"?"Veuillez sélectionner un événement.":"Please select an event."); return; }
     if(!window.confirm(lang==="fr"?`Enregistrer une JOURNÉE DE TRAVAIL pour ${logDate} — ${shiftEvent} ?`:`Register a WORKING DAY for ${logDate} — ${shiftEvent}?`)) return;
     try {
-      await addDoc(collection(db,"timesheets"),{
+      await addDoc(collection(db,"timesheets"),{drvId:employee.drvId||null,
         employeeName:employee.name, employeePhone:employee.phone, employeeEmail:employee.email,
         event:shiftEvent||employee.event, subEvent:shiftSubEvent||null, date:logDate,
         startTime:"00:00", endTime:"00:00", hours:0,
@@ -1826,7 +1826,7 @@ export default function TimesheetApp() {
       if(netMins<1){alert(t("alertTime"));setSaving(false);return;}
       // Day-type conflict check — hours cannot coexist with working-day or non-working entries
       try {
-        const daySnap = await getDocs(query(collection(db,"timesheets"), where("employeeEmail","==",employee.email), where("date","==",entryDate)));
+        const daySnap = await getDocs(query(collection(db,"timesheets"), where("drvId","==",employee.drvId||"-"), where("date","==",entryDate)));
         const hasWorkingDay = daySnap.docs.some(d => { const e=d.data(); return (parseFloat(e.numDays)||0)>0 || e.dayType==="working-day"; });
         const hasNonWorking = daySnap.docs.some(d => { const e=d.data(); return (parseFloat(e.numNwDays)||0)>0 || e.dayType==="non-working"; });
         const hasTravelDay = daySnap.docs.some(d => { const e=d.data(); return (parseFloat(e.numTravelDays)||0)>0 || e.dayType==="travel-day"; });
@@ -1860,8 +1860,8 @@ export default function TimesheetApp() {
         })();
 
         const [sameSnap, prevSnap] = await Promise.all([
-          getDocs(query(collection(db,"timesheets"), where("employeeEmail","==",employee.email), where("date","==",entryDate))),
-          getDocs(query(collection(db,"timesheets"), where("employeeEmail","==",employee.email), where("date","==",prevDate))),
+          getDocs(query(collection(db,"timesheets"), where("drvId","==",employee.drvId||"-"), where("date","==",entryDate))),
+          getDocs(query(collection(db,"timesheets"), where("drvId","==",employee.drvId||"-"), where("date","==",prevDate))),
         ]);
 
         // Check same-day entries: overlap if the two windows intersect.
@@ -1901,7 +1901,7 @@ export default function TimesheetApp() {
           }
         }
       } catch(dupErr) { console.warn("overlap check failed:", dupErr); }
-      await addDoc(collection(db,"timesheets"),{ employeeName:employee.name, employeePhone:employee.phone, employeeEmail:employee.email, event:shiftEvent||employee.event, subEvent:shiftSubEvent||null, date:entryDate, startTime:logStart, endTime:logEnd, breakMinutes:breakMins||null, hours:+(netMins/60).toFixed(2), notes:logNotes.trim(), truckUnit:logTruck.trim()||null, trailerUnit:logTrailer.trim()||null, kmStart:logKmStart?parseFloat(logKmStart):null, kmEnd:logKmEnd?parseFloat(logKmEnd):null, kmTotal:(logKmStart&&logKmEnd)?parseFloat(logKmEnd)-parseFloat(logKmStart):null, gpsIn: gpsIn||null, gpsOut: gpsOut||null, unitLog: unitLog.length>0?unitLog:null, dayType: dayType||"working", submittedAt:new Date().toISOString() });
+      await addDoc(collection(db,"timesheets"),{drvId:employee.drvId||null, employeeName:employee.name, employeePhone:employee.phone, employeeEmail:employee.email, event:shiftEvent||employee.event, subEvent:shiftSubEvent||null, date:entryDate, startTime:logStart, endTime:logEnd, breakMinutes:breakMins||null, hours:+(netMins/60).toFixed(2), notes:logNotes.trim(), truckUnit:logTruck.trim()||null, trailerUnit:logTrailer.trim()||null, kmStart:logKmStart?parseFloat(logKmStart):null, kmEnd:logKmEnd?parseFloat(logKmEnd):null, kmTotal:(logKmStart&&logKmEnd)?parseFloat(logKmEnd)-parseFloat(logKmStart):null, gpsIn: gpsIn||null, gpsOut: gpsOut||null, unitLog: unitLog.length>0?unitLog:null, dayType: dayType||"working", submittedAt:new Date().toISOString() });
       setLogStart(""); setLogEnd(""); setLogNotes(""); setLogTruck(""); setLogTrailer(""); setLogKmStart(""); setLogKmEnd(""); localStorage.removeItem("cargodx_clockin_kmstart"); localStorage.removeItem("cargodx_clockin_kmend"); setLogBreak("");
       setGpsIn(null); setGpsOut(null); setClockedIn(false); setShowManual(false); setEquipAnswer(null);
       localStorage.removeItem("cargodx_clockin_start");
@@ -1965,7 +1965,7 @@ export default function TimesheetApp() {
   // rate wasn't available, the expense is stored in USD and flagged fxPending
   // so dispatch can convert it manually — submission is never blocked.
   const writeExpense = async (x, fx) => {
-    const base = { employeeName:employee.name, employeePhone:employee.phone, employeeEmail:employee.email, event:x.event, subEvent:x.subEvent||null, date:x.date, type:x.type, amount:x.amount, currency:x.currency, description:x.description, receiptUrl:x.receiptUrl, receiptName:x.receiptName, status:"pending", submittedAt:new Date().toISOString() };
+    const base = { drvId:employee.drvId||null, employeeName:employee.name, employeePhone:employee.phone, employeeEmail:employee.email, event:x.event, subEvent:x.subEvent||null, date:x.date, type:x.type, amount:x.amount, currency:x.currency, description:x.description, receiptUrl:x.receiptUrl, receiptName:x.receiptName, status:"pending", submittedAt:new Date().toISOString() };
     if(x.currency==="USD"){
       if(fx?.rate){
         base.amountCad = +(x.amount * fx.rate).toFixed(2);
