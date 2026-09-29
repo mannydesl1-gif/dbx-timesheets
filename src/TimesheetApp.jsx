@@ -4,7 +4,7 @@ import { initializeFirestore } from "firebase/firestore";
 import { getStorage, ref as storageRef, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
 import { collection, addDoc, query, where, getDocs, getDoc, orderBy, setDoc, doc, updateDoc, deleteDoc, onSnapshot } from "firebase/firestore";
 import { getMessaging, getToken, onMessage } from "firebase/messaging";
-import { getAuth, signInAnonymously, onAuthStateChanged } from "firebase/auth";
+import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken, signOut } from "firebase/auth";
 const LOGO_SRC = "data:image/jpeg;base64,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";
 
 // ── Firebase config (same project as dispatch app) ──
@@ -31,8 +31,18 @@ const _auth = getAuth(app);
 // gets denied — so app code must await authReadyPromise before its first read.
 let _resolveAuthReady;
 const authReadyPromise = new Promise(res => { _resolveAuthReady = res; });
-onAuthStateChanged(_auth, user => { if (user) _resolveAuthReady(true); });
-signInAnonymously(_auth).catch(e => console.warn("Anon auth failed:", e));
+// A phone that logged in through the server (Employee ID + PIN → timesheetLogin)
+// stays signed in AS that employee across app restarts. Only a phone with no
+// session at all (first open, or after Log out) falls back to an anonymous one.
+onAuthStateChanged(_auth, user => {
+  if (user) _resolveAuthReady(true);
+  else signInAnonymously(_auth).catch(e => console.warn("Anon auth failed:", e));
+});
+// Server-side login + supervisor roster (functions/index.js in dbx-dispatch)
+const TS_FN = {
+  login: "https://timesheetlogin-lmhvg7gefa-uc.a.run.app",
+  crewRoster: "https://crewroster-lmhvg7gefa-uc.a.run.app",
+};
 let messaging = null;
 try { messaging = getMessaging(app); } catch(e) { console.log('Messaging not supported'); }
 
@@ -103,6 +113,10 @@ const T = {
     loginErrNotFound: "ID employé introuvable. Vérifiez votre ID ou contactez votre gestionnaire.",
     loginErrArchived: "Ce compte est archivé. Contactez votre gestionnaire.",
     loginErrPin: "NIP incorrect. Veuillez réessayer.",
+    loginErrPinLeft: (n) => `NIP incorrect. ${n} essai(s) restant(s) avant un blocage de 15 minutes.`,
+    loginErrLocked: (m) => `Trop d'essais. Réessayez dans ${m} minute(s), ou contactez votre gestionnaire.`,
+    loginErrNoPin: "Aucun NIP n'est défini pour votre compte. Demandez à votre gestionnaire d'en créer un.",
+    loginErrServer: "Connexion impossible pour le moment. Vérifiez votre connexion Internet et réessayez.",
     loginErrEmpty: "Veuillez entrer votre ID employé et votre NIP.",
     welcomeBack: (n) => `👋 Bon retour, ${n} ! Vos infos sont sauvegardées.`,
     fullName: "Nom complet", phone: "Numéro de téléphone", email: "Adresse courriel", event: "Événement",
@@ -200,6 +214,10 @@ const T = {
     loginErrNotFound: "Employee ID not found. Check your ID or contact your manager.",
     loginErrArchived: "This account is archived. Please contact your manager.",
     loginErrPin: "Incorrect PIN. Please try again.",
+    loginErrPinLeft: (n) => `Incorrect PIN. ${n} ${n === 1 ? "try" : "tries"} left before a 15-minute lock.`,
+    loginErrLocked: (m) => `Too many tries. Try again in ${m} minute${m === 1 ? "" : "s"}, or contact your manager.`,
+    loginErrNoPin: "No PIN is set for your account yet. Ask your manager to create one.",
+    loginErrServer: "Can't sign in right now. Check your internet connection and try again.",
     loginErrEmpty: "Please enter your Employee ID and PIN.",
     welcomeBack: (n) => `👋 Welcome back, ${n}! Your info is saved.`,
     fullName: "Full name", phone: "Phone number", email: "Email address", event: "Event",
@@ -472,6 +490,7 @@ function BulkEntryPanel({ db, allEvents, employee, C, S, lang, onClose, showToas
   const [category, setCategory] = useState("drivers"); // drivers | employees
   const [people, setPeople] = useState([]);
   const [loadingPeople, setLoadingPeople] = useState(true);
+  const [rosterErr, setRosterErr] = useState("");
   const [selected, setSelected] = useState({});
   const [search, setSearch] = useState("");
   const [listOpen, setListOpen] = useState(false); // name list appears when the search box is tapped
@@ -494,9 +513,19 @@ function BulkEntryPanel({ db, allEvents, employee, C, S, lang, onClose, showToas
   useEffect(() => { (async () => {
     setLoadingPeople(true);
     try {
-      const snap = await getDocs(collection(db, "drivers"));
-      setPeople(snap.docs.map(d => ({ id: d.id, ...d.data() })).filter(d => d.archived !== true && d.name));
-    } catch (e) { console.error(e); showToast(L("Échec du chargement", "Failed to load roster"), true); }
+      const u = _auth.currentUser;
+      if (!u || u.isAnonymous) {
+        // Logged in before the security update — needs one fresh sign-in
+        setRosterErr(L("Pour utiliser la saisie d'équipe, déconnectez-vous puis reconnectez-vous une fois (mise à jour de sécurité).",
+                       "To use Crew Entry, log out and sign back in once (security update)."));
+      } else {
+        const r = await fetch(TS_FN.crewRoster, { method: "POST", headers: { "Authorization": "Bearer " + await u.getIdToken() } });
+        const j = await r.json().catch(() => ({}));
+        if (r.ok && j.success) setPeople(j.people || []);
+        else if (j.error === "notSupervisor") setRosterErr(L("La saisie d'équipe n'est pas activée pour votre compte.", "Crew Entry isn't turned on for your account."));
+        else setRosterErr(L("Impossible de charger la liste. Vérifiez votre connexion.", "Couldn't load the crew list. Check your connection."));
+      }
+    } catch (e) { console.error(e); setRosterErr(L("Impossible de charger la liste. Vérifiez votre connexion.", "Couldn't load the crew list. Check your connection.")); }
     setLoadingPeople(false);
   })(); }, []); // eslint-disable-line
 
@@ -657,6 +686,7 @@ function BulkEntryPanel({ db, allEvents, employee, C, S, lang, onClose, showToas
             </div>
           )}
         </div>
+        {rosterErr && <div style={{ fontSize: 13, color: "#b91c1c", background: "rgba(220,38,38,0.08)", border: "1px solid rgba(220,38,38,0.3)", borderRadius: 8, padding: "10px 12px", marginBottom: 10 }}>{rosterErr}</div>}
         <div style={{ position: "relative", marginBottom: 8 }}>
           <FocusInput type="text" value={search} onClick={() => setListOpen(true)} onChange={e => { setSearch(e.target.value); setListOpen(true); }}
             placeholder={crewOnly ? L(`Rechercher dans l'équipe de l'événement (${crewInCat.length})…`, `Search event crew (${crewInCat.length})…`) : L("Rechercher un nom…", "Search a name…")}
@@ -1174,6 +1204,7 @@ export default function TimesheetApp() {
   const doLogout = () => {
     if(!window.confirm(lang==="fr"?"Se déconnecter ? Vos données sauvegardées seront effacées de cet appareil.":"Log out? Your saved profile will be cleared from this device.")) return;
     setEmployee(null);
+    signOut(_auth).catch(()=>{}); // drop the signed-in employee; the phone falls back to an anonymous session
     localStorage.removeItem("cargodx_employee");
     localStorage.removeItem("cargodx_last_activity");
     localStorage.removeItem("cargodx_clockin_start");
@@ -1219,10 +1250,16 @@ export default function TimesheetApp() {
         await authReadyPromise; // wait for anon token before reading drivers
         const empKey = String(savedEmployee.employeeId || savedEmployee.key || "").trim().toLowerCase();
         if (!empKey) return;
-        const snap = await getDocs(collection(db, "drivers"));
-        const match = snap.docs.find(d =>
-          String(d.data().employeeId || "").trim().toLowerCase() === empKey
-        );
+        let match = null;
+        if (savedEmployee.drvId) {
+          // Normal case: read only this person's own record
+          const own = await getDoc(doc(db, "drivers", savedEmployee.drvId));
+          if (own.exists()) match = own;
+        } else {
+          // Very old saved session (pre-June 2026, no drvId): one-time lookup
+          const snap = await getDocs(collection(db, "drivers"));
+          match = snap.docs.find(d => String(d.data().employeeId || "").trim().toLowerCase() === empKey) || null;
+        }
         if (match) {
           // Archived after they logged in — kick the cached session so they
           // can't keep creating entries. Record kept for history only.
@@ -1230,6 +1267,7 @@ export default function TimesheetApp() {
             ["cargodx_employee","cargodx_clockin_start","cargodx_clockin_end","cargodx_clockin_date",
              "cargodx_clockin_truck","cargodx_clockin_trailer","cargodx_clockin_kmstart","cargodx_clockin_kmend",
              "cargodx_clockin_event","cargodx_clockin_break","cargodx_unitlog","cargodx_tab","cargodx_last_activity"].forEach(k=>localStorage.removeItem(k));
+            signOut(_auth).catch(()=>{});
             setEmployee(null);
             setTab(1);
             return;
@@ -1526,54 +1564,32 @@ export default function TimesheetApp() {
 
     setSubmitting(true);
     try {
-      await authReadyPromise; // ensure anon token exists before the rules-gated read
-      // Look up driver by employeeId field
-      const driversSnap = await getDocs(collection(db,"drivers"));
-      const driverMatch = driversSnap.docs.find(d => {
-        const data = d.data();
-        return String(data.employeeId||"").trim().toLowerCase() === empId.toLowerCase();
-      });
-
-      if(!driverMatch) {
-        setLoginError(t("loginErrNotFound"));
+      // The ID + PIN are checked on the SERVER (timesheetLogin). The phone never
+      // downloads the roster or anyone's PIN; on success it is signed in as
+      // this employee (not an anonymous visitor).
+      let r, j = {};
+      try {
+        r = await fetch(TS_FN.login, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ employeeId: empId, pin }) });
+        j = await r.json().catch(() => ({}));
+      } catch (netErr) { r = null; }
+      if (!r || !r.ok || !j.success) {
+        const e = j.error;
+        if (e === "notFound") setLoginError(t("loginErrNotFound"));
+        else if (e === "badPin") { setLoginError(j.remaining > 0 && j.remaining <= 3 ? t("loginErrPinLeft", j.remaining) : t("loginErrPin")); setRegPin(""); }
+        else if (e === "locked") { setLoginError(t("loginErrLocked", j.minutes || 15)); setRegPin(""); }
+        else if (e === "archived") setLoginError(t("loginErrArchived"));
+        else if (e === "noPin") setLoginError(t("loginErrNoPin"));
+        else { if (j.detail) console.error("timesheetLogin:", j.detail); setLoginError(t("loginErrServer")); }
         setSubmitting(false);
         return;
       }
+      await signInWithCustomToken(_auth, j.token);
 
-      const driverData = driverMatch.data();
-      const driverPin = String(driverData.pin||"").trim();
-
-      // Verify PIN
-      if(driverPin && pin !== driverPin) {
-        setLoginError(t("loginErrPin"));
-        setRegPin("");
-        setSubmitting(false);
-        return;
-      }
-
-      // Archived people can't log in — record kept for history only, no new
-      // sessions/entries. (Dispatch assignment dropdown also excludes them.)
-      if(driverData.archived === true) {
-        setLoginError(t("loginErrArchived"));
-        setSubmitting(false);
-        return;
-      }
-
-      // PIN correct (or no PIN set) — build employee profile from driver record
+      // Profile comes from the driver record, minus the PIN
       const emp = {
-        name: driverData.name || empId,
-        phone: driverData.phone || "",
-        email: driverData.email || "",
-        employeeId: empId,
-        drvId: driverMatch.id,        // driver roster doc ID — matches order.drvId set in dispatch
+        ...j.profile,                 // name, phone, email, employeeId, drvId, payCfg, logRestricted, driverLog, isDriver, isEmployee, tsBulkEntry
         event: regEvent,
         key: empId.toLowerCase().replace(/\s/g,""),
-        payCfg: driverData.payCfg || null,
-        logRestricted: driverData.logRestricted === true,
-        driverLog: driverData.driverLog === true,
-        isDriver: driverData.isDriver !== false,   // default true, matches dispatch
-        isEmployee: driverData.isEmployee === true, // ground crew flag
-        tsBulkEntry: driverData.tsBulkEntry === true, // supervisor: can bulk-enter timesheets
       };
 
       // Check for active session on another device
@@ -1585,7 +1601,7 @@ export default function TimesheetApp() {
       }
 
       // Finalize registration
-      await finalizeRegistration(emp, driverMatch);
+      await finalizeRegistration(emp, null);
 
     } catch(e){ console.error(e); showToast(t("toastErr"),true); }
     setSubmitting(false);
@@ -1611,15 +1627,6 @@ export default function TimesheetApp() {
       documents: uploadedDocs,
     }, { merge:true });
 
-    // Also update drivers doc with latest phone/email if we found a match
-    if(driverMatch) {
-      try {
-        await setDoc(doc(db,"drivers",driverMatch.id), {
-          phone: emp.phone||driverMatch.data().phone,
-          email: emp.email||driverMatch.data().email,
-        }, { merge:true });
-      } catch(e){ console.warn("Driver sync failed:", e); }
-    }
 
     localStorage.removeItem("cargodx_last_activity");
     setEmployee(emp);
