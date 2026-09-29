@@ -458,6 +458,261 @@ function DocCard({ docType, file, onFile, otherLabel, onOtherLabel, lang, t, C, 
   );
 }
 
+// ─── SUPERVISOR: bulk crew timesheet entry ──────────────────────────────────
+// Lets a flagged supervisor enter ONE shared entry for many crew at once. Each
+// person gets a normal `timesheets` document — identical shape to a self-entered
+// one — plus enteredBy / onBehalf / batchId so a batch is auditable and undoable.
+// Category (Drivers vs Employees) is chosen first, then the people are picked.
+function BulkEntryPanel({ db, allEvents, employee, C, S, lang, onClose, showToast }) {
+  const L = (fr, en) => (lang === "fr" ? fr : en);
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const [event, setEvent] = useState("");
+  const [subEvent, setSubEvent] = useState("");
+  const [date, setDate] = useState(todayStr);
+  const [category, setCategory] = useState("drivers"); // drivers | employees
+  const [people, setPeople] = useState([]);
+  const [loadingPeople, setLoadingPeople] = useState(true);
+  const [selected, setSelected] = useState({});
+  const [search, setSearch] = useState("");
+  const [primaryType, setPrimaryType] = useState("");   // one day type (optional)
+  const [addPerDiem, setAddPerDiem] = useState(false);  // stackable add-ons
+  const [addTrip, setAddTrip] = useState(false);
+  const [startTime, setStartTime] = useState("08:00");
+  const [endTime, setEndTime] = useState("17:00");
+  const [tripCount, setTripCount] = useState("1");
+  const [notes, setNotes] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+
+  const evObj = allEvents.find(a => a.name === event) || null;
+  const locked = !!(evObj && evObj.locked);
+  const subOptions = evObj && Array.isArray(evObj.subEvents)
+    ? evObj.subEvents.filter(s => !(evObj.archivedSubEvents || []).includes(s)) : [];
+
+  // Load the roster once (active only)
+  useEffect(() => { (async () => {
+    setLoadingPeople(true);
+    try {
+      const snap = await getDocs(collection(db, "drivers"));
+      setPeople(snap.docs.map(d => ({ id: d.id, ...d.data() })).filter(d => d.archived !== true && d.name));
+    } catch (e) { console.error(e); showToast(L("Échec du chargement", "Failed to load roster"), true); }
+    setLoadingPeople(false);
+  })(); }, []); // eslint-disable-line
+
+  // Category split — mirrors dispatch: ground crew = Employee AND not Driver.
+  const roster = people
+    .filter(p => category === "drivers" ? (p.isDriver !== false) : (p.isEmployee === true && p.isDriver !== true))
+    .sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+  const selCount = roster.filter(p => selected[p.id]).length;
+  const shown = roster.filter(p => !search.trim() || (p.name || "").toLowerCase().includes(search.trim().toLowerCase()));
+  const allSel = shown.length > 0 && shown.every(p => selected[p.id]);
+  const toggleAll = () => { const ns = { ...selected }; if (allSel) shown.forEach(p => delete ns[p.id]); else shown.forEach(p => ns[p.id] = true); setSelected(ns); };
+
+  // Which entry types this event allows
+  const TYPES = [
+    ["hours", L("Heures", "Hours"), !evObj || evObj.allowHours !== false],
+    ["per-diem", L("Per diem", "Per Diem"), !!(evObj && evObj.allowPerDiem)],
+    ["working-day", L("Journée de travail", "Working Day"), !!(evObj && evObj.allowDaily)],
+    ["non-working", L("Jour non travaillé", "Non-Working"), !!(evObj && evObj.allowNwDays)],
+    ["travel-day", L("Déplacement", "Travel Day"), !!(evObj && evObj.allowTravelDays)],
+    ["trip", L("Trajets", "Trips"), !!(evObj && evObj.allowTrips)],
+  ];
+  const allowedTypes = TYPES.filter(t => t[2]);
+  const primaryAllowed = allowedTypes.filter(t => t[0] !== "per-diem" && t[0] !== "trip"); // hours/working/non-working/travel
+  const perDiemAllowed = !!(evObj && evObj.allowPerDiem);
+  const tripAllowed = !!(evObj && evObj.allowTrips);
+  // When the event changes, drop selections it no longer allows
+  useEffect(() => {
+    if (!evObj) return;
+    if (primaryType && !primaryAllowed.some(t => t[0] === primaryType)) setPrimaryType("");
+    if (addPerDiem && !perDiemAllowed) setAddPerDiem(false);
+    if (addTrip && !tripAllowed) setAddTrip(false);
+  }, [event]); // eslint-disable-line
+
+  const defaultNote = (ty) => ty === "per-diem" ? L("Per diem", "Per diem")
+    : ty === "non-working" ? L("Jour non travaillé", "Non-working day")
+    : ty === "travel-day" ? L("Jour de déplacement", "Travel day")
+    : ty === "trip" ? `${parseInt(tripCount) || 1} ${L("trajet(s)", "trip(s)")}` : null;
+
+  const PRIMARY_DAY = ["hours", "working-day", "non-working", "travel-day"];
+
+  const submit = async () => {
+    if (locked) { window.alert(L("Cet événement est verrouillé.", "This event is locked.")); return; }
+    if (!event) { window.alert(L("Choisissez un événement.", "Select an event.")); return; }
+    if (!date) { window.alert(L("Choisissez une date.", "Choose a date.")); return; }
+    if (date > todayStr) { window.alert(L("Vous ne pouvez pas enregistrer une entrée pour une date future.", "You can't log an entry for a future date.")); return; }
+    if (selCount === 0) { window.alert(L("Sélectionnez au moins une personne.", "Select at least one person.")); return; }
+    // What are we creating? one optional day type + optional add-ons
+    const toCreate = [];
+    if (primaryType) toCreate.push(primaryType);
+    if (addPerDiem) toCreate.push("per-diem");
+    if (addTrip) toCreate.push("trip");
+    if (toCreate.length === 0) { window.alert(L("Choisissez un type de journée ou un extra.", "Pick a day type or an add-on.")); return; }
+    if (primaryType === "hours" && (!startTime || !endTime)) { window.alert(L("Entrez l'heure de début et de fin.", "Enter start and end time.")); return; }
+    const chosen = roster.filter(p => selected[p.id]);
+    const typeLabels = toCreate.map(ty => (TYPES.find(t => t[0] === ty) || [])[1] || ty).join(" + ");
+    if (!window.confirm(L(
+      `Enregistrer « ${typeLabels} » pour ${chosen.length} personne(s) le ${date} — ${event} ?`,
+      `Log "${typeLabels}" for ${chosen.length} person(s) on ${date} — ${event}?`))) return;
+    setSubmitting(true);
+    try {
+      const existSnap = await getDocs(query(collection(db, "timesheets"), where("date", "==", date), where("event", "==", event)));
+      const existByPerson = {}; // person -> Set of dayTypes already logged that day+event
+      existSnap.docs.forEach(d => { const x = d.data(); const k = String(x.employeeEmail || x.employeeName || "").toLowerCase(); (existByPerson[k] || (existByPerson[k] = new Set())).add(x.dayType); });
+      const batchId = `bulk_${Date.now()}`;
+      const enteredBy = employee?.name || employee?.email || "supervisor";
+      const buildRec = (p, ty) => {
+        const rec = {
+          employeeName: p.name, employeePhone: p.phone || "", employeeEmail: p.email || "",
+          event, subEvent: subEvent || null, date,
+          startTime: ty === "hours" ? startTime : "00:00",
+          endTime: ty === "hours" ? endTime : "00:00",
+          hours: ty === "hours" ? +(calcMins(startTime, endTime) / 60).toFixed(2) : 0,
+          notes: notes.trim() || defaultNote(ty),
+          dayType: ty,
+          submittedAt: new Date().toISOString(),
+          enteredBy, onBehalf: true, batchId,
+        };
+        if (ty === "working-day") rec.numDays = 1;
+        if (ty === "per-diem") rec.numPerDiem = 1;
+        if (ty === "travel-day") rec.numTravelDays = 1;
+        if (ty === "trip") rec.numTrips = parseInt(tripCount) || 1;
+        return rec;
+      };
+      let created = 0, skipped = 0, failed = 0;
+      await Promise.all(chosen.map(async (p) => {
+        const pk = String(p.email || p.name || "").toLowerCase();
+        const have = existByPerson[pk] || new Set();
+        for (const ty of toCreate) {
+          // primary day types are mutually exclusive per date; per-diem/trip only clash with the same type
+          const conflict = PRIMARY_DAY.includes(ty) ? PRIMARY_DAY.some(t => have.has(t)) : have.has(ty);
+          if (conflict) { skipped++; continue; }
+          try { await addDoc(collection(db, "timesheets"), buildRec(p, ty)); created++; have.add(ty); } catch (e) { console.error(e); failed++; }
+        }
+      }));
+      showToast(L(
+        `Créé : ${created} · Ignoré : ${skipped}${failed ? ` · Échec : ${failed}` : ""}`,
+        `Created ${created} · Skipped ${skipped}${failed ? ` · Failed ${failed}` : ""}`));
+      if (created > 0) setSelected({});
+    } catch (e) { console.error(e); showToast(L("Erreur", "Error"), true); }
+    setSubmitting(false);
+  };
+
+  const chip = (active) => ({ padding: "8px 12px", borderRadius: 8, border: `1.5px solid ${active ? C.green : C.border}`, background: active ? C.greenLight : "transparent", color: active ? C.green : C.black, fontSize: 13, fontWeight: 700, cursor: "pointer" });
+
+  return (
+    <div style={{ position: "fixed", inset: 0, background: C.white, zIndex: 2050, overflowY: "auto", WebkitOverflowScrolling: "touch", paddingBottom: "calc(24px + env(safe-area-inset-bottom,0px))" }}>
+      <div style={{ position: "sticky", top: 0, background: C.white, borderBottom: `1px solid ${C.border}`, padding: "14px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", zIndex: 2 }}>
+        <div style={{ fontSize: 17, fontWeight: 800, color: C.black }}>👥 {L("Saisie d'équipe", "Crew Entry")}</div>
+        <button onClick={onClose} style={{ background: "transparent", border: `1px solid ${C.border}`, color: C.black, borderRadius: 8, padding: "6px 12px", fontSize: 14, fontWeight: 700, cursor: "pointer" }}>✕ {L("Fermer", "Close")}</button>
+      </div>
+
+      <div style={{ padding: "16px", maxWidth: 480, margin: "0 auto", boxSizing: "border-box" }}>
+        <Field label={L("Événement", "Event")} required C={C} S={S}>
+          <FocusSelect value={event} onChange={e => { setEvent(e.target.value); setSubEvent(""); setSelected({}); }}>
+            <option value="">{L("— Choisir —", "— Select —")}</option>
+            {allEvents.filter(e => e.active !== false).map(e => <option key={e.name} value={e.name}>{e.name}</option>)}
+          </FocusSelect>
+        </Field>
+
+        {locked && <div style={{ fontSize: 12, color: "#b91c1c", marginBottom: 10 }}>🔒 {L("Cet événement est verrouillé.", "This event is locked.")}</div>}
+
+        {subOptions.length > 0 && (
+          <Field label={L("Sous-événement", "Sub-event")} C={C} S={S}>
+            <FocusSelect value={subEvent} onChange={e => setSubEvent(e.target.value)}>
+              <option value="">{L("— Aucun —", "— None —")}</option>
+              {subOptions.map(s => <option key={s} value={s}>{s}</option>)}
+            </FocusSelect>
+          </Field>
+        )}
+
+        <Field label={L("Date", "Date")} required C={C} S={S}>
+          <FocusInput type="date" value={date} max={todayStr} onChange={e => { const v = e.target.value; if (v && v > todayStr) { window.alert(L("Vous ne pouvez pas enregistrer une entrée pour une date future.", "You can't log an entry for a future date.")); return; } setDate(v); }} />
+        </Field>
+
+        {/* Category */}
+        <div style={{ fontSize: 11, fontWeight: 700, color: C.gray, textTransform: "uppercase", letterSpacing: "0.05em", margin: "6px 0 6px" }}>{L("Catégorie", "Category")}</div>
+        <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
+          <button style={{ ...chip(category === "drivers"), flex: 1 }} onClick={() => { setCategory("drivers"); setSelected({}); setSearch(""); }}>🚚 {L("Chauffeurs", "Drivers")}</button>
+          <button style={{ ...chip(category === "employees"), flex: 1 }} onClick={() => { setCategory("employees"); setSelected({}); setSearch(""); }}>👷 {L("Employés", "Employees")}</button>
+        </div>
+
+        {/* People */}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: C.gray, textTransform: "uppercase", letterSpacing: "0.05em" }}>{L("Qui", "Who")} {selCount > 0 && <span style={{ color: C.green }}>· {selCount}</span>}</div>
+          {shown.length > 0 && <button onClick={toggleAll} style={{ background: "transparent", border: "none", color: C.green, fontSize: 12, fontWeight: 700, cursor: "pointer" }}>{allSel ? L("Tout décocher", "Clear all") : L("Tout sélectionner", "Select all")}</button>}
+        </div>
+        <FocusInput type="text" value={search} onChange={e => setSearch(e.target.value)} placeholder={L("Rechercher un nom…", "Search a name…")} autoCapitalize="none" style={{ marginBottom: 8 }} />
+        <div style={{ border: `1px solid ${C.border}`, borderRadius: 8, maxHeight: 240, overflowY: "auto", marginBottom: 16 }}>
+          {loadingPeople ? <div style={{ padding: 14, fontSize: 13, color: C.gray }}>{L("Chargement…", "Loading…")}</div>
+            : roster.length === 0 ? <div style={{ padding: 14, fontSize: 13, color: C.gray }}>{L("Personne dans cette catégorie.", "No one in this category.")}</div>
+            : shown.length === 0 ? <div style={{ padding: 14, fontSize: 13, color: C.gray }}>{L("Aucun résultat.", "No match.")}</div>
+            : shown.map(p => (
+              <label key={p.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderBottom: `1px solid ${C.border}`, cursor: "pointer" }}>
+                <input type="checkbox" checked={!!selected[p.id]} onChange={e => setSelected(s => ({ ...s, [p.id]: e.target.checked }))} style={{ width: 18, height: 18 }} />
+                <span style={{ fontSize: 14, color: C.black }}>{p.name}</span>
+              </label>
+            ))}
+        </div>
+
+        {/* Selected — stays visible while you keep searching/selecting */}
+        {selCount > 0 && (
+          <div style={{ marginBottom: 16 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: C.gray, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 6 }}>{L("Sélectionnés", "Selected")} · {selCount}</div>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+              {people.filter(p => selected[p.id]).map(p => (
+                <span key={p.id} onClick={() => setSelected(sel => { const n = { ...sel }; delete n[p.id]; return n; })}
+                  style={{ display: "inline-flex", alignItems: "center", gap: 6, background: C.greenLight, color: C.green, border: `1px solid ${C.green}`, borderRadius: 16, padding: "4px 10px", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
+                  {p.name} <span style={{ opacity: 0.7 }}>✕</span>
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Day type (one) + add-ons (stackable) */}
+        {event && <>
+          {primaryAllowed.length > 0 && <>
+            <div style={{ fontSize: 11, fontWeight: 700, color: C.gray, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 6 }}>{L("Type de journée (un seul)", "Day type (one)")}</div>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 14 }}>
+              {primaryAllowed.map(t => <button key={t[0]} style={chip(primaryType === t[0])} onClick={() => setPrimaryType(primaryType === t[0] ? "" : t[0])}>{t[1]}</button>)}
+            </div>
+          </>}
+
+          {primaryType === "hours" && (
+            <div style={{ display: "flex", gap: 10, marginBottom: 14 }}>
+              <div style={{ flex: 1 }}><Field label={L("Début", "Start")} C={C} S={S}><FocusInput type="time" value={startTime} onChange={e => setStartTime(e.target.value)} /></Field></div>
+              <div style={{ flex: 1 }}><Field label={L("Fin", "End")} C={C} S={S}><FocusInput type="time" value={endTime} onChange={e => setEndTime(e.target.value)} /></Field></div>
+              <div style={{ alignSelf: "center", fontSize: 13, fontWeight: 700, color: C.green, paddingTop: 14 }}>{fmtHours(calcMins(startTime, endTime))}</div>
+            </div>
+          )}
+
+          {(perDiemAllowed || tripAllowed) && <>
+            <div style={{ fontSize: 11, fontWeight: 700, color: C.gray, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 6 }}>{L("\u00c0 ajouter (cumulable)", "Add-ons (stackable)")}</div>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 14 }}>
+              {perDiemAllowed && <button style={chip(addPerDiem)} onClick={() => setAddPerDiem(v => !v)}>{addPerDiem ? "\u2713 " : ""}{L("Per diem", "Per Diem")}</button>}
+              {tripAllowed && <button style={chip(addTrip)} onClick={() => setAddTrip(v => !v)}>{addTrip ? "\u2713 " : ""}{L("Trajets", "Trips")}</button>}
+            </div>
+          </>}
+
+          {addTrip && (
+            <Field label={L("Nombre de trajets (chacun)", "Trips per person")} C={C} S={S}>
+              <FocusInput type="number" inputMode="numeric" min="1" value={tripCount} onChange={e => setTripCount(e.target.value)} />
+            </Field>
+          )}
+
+          <Field label={L("Notes (optionnel)", "Notes (optional)")} C={C} S={S}>
+            <FocusInput type="text" value={notes} onChange={e => setNotes(e.target.value)} placeholder={L("S'applique à tous", "Applies to everyone")} />
+          </Field>
+
+          <button style={{ ...S.btn, ...S.btnGrn, opacity: submitting ? 0.6 : 1 }} disabled={submitting} onClick={submit}>
+            {submitting ? L("Enregistrement…", "Saving…") : L(`Enregistrer pour ${selCount} personne(s)`, `Log for ${selCount} person(s)`)}
+          </button>
+        </>}
+      </div>
+    </div>
+  );
+}
+
 export default function TimesheetApp() {
   const [lang, setLangState] = useState(()=>localStorage.getItem("cargodx_lang")||"fr");
   const [darkMode, setDarkMode] = useState(()=>{
@@ -482,6 +737,7 @@ export default function TimesheetApp() {
   // Defensive default: a missing flag (old saved session) is treated as NOT ground
   // crew, so no one loses tabs until their record confirms it (self-corrects on next login).
   const isGroundCrew = !!(employee && employee.isEmployee === true && employee.isDriver !== true);
+  const canBulkEntry = !!(employee && employee.tsBulkEntry === true);
   const [activeSession, setActiveSession] = useState(null); // found session on another device
   // PIN verification: when a matched driver has a PIN, hold pending registration data here
   const [pinPrompt, setPinPrompt] = useState(null); // { emp, driverPin, driverMatch }
@@ -519,6 +775,7 @@ export default function TimesheetApp() {
   const [showNoteBox,setShowNoteBox]=useState(false);
   const [dayType,setDayType]=useState("working");
   const [showNwPanel,setShowNwPanel]=useState(false);
+  const [showBulk,setShowBulk]=useState(false);
   const [eventAllowsNw,setEventAllowsNw]=useState(false);
   const [eventAllowsTravel,setEventAllowsTravel]=useState(false);
   const [eventAllowsPerDiem,setEventAllowsPerDiem]=useState(false);
@@ -950,9 +1207,10 @@ export default function TimesheetApp() {
           // so an admin toggling access takes effect on the next app open.
           const restricted = match.data().logRestricted === true;
           const driverLog = match.data().driverLog === true;
-          const needsUpdate = !savedEmployee.drvId || savedEmployee.logRestricted !== restricted || savedEmployee.driverLog !== driverLog;
+          const bulkEntry = match.data().tsBulkEntry === true;
+          const needsUpdate = !savedEmployee.drvId || savedEmployee.logRestricted !== restricted || savedEmployee.driverLog !== driverLog || savedEmployee.tsBulkEntry !== bulkEntry;
           if (needsUpdate) {
-            const updated = { ...savedEmployee, drvId: match.id, logRestricted: restricted, driverLog };
+            const updated = { ...savedEmployee, drvId: match.id, logRestricted: restricted, driverLog, tsBulkEntry: bulkEntry };
             setEmployee(updated);
             localStorage.setItem("cargodx_employee", JSON.stringify(updated));
           }
@@ -1284,6 +1542,7 @@ export default function TimesheetApp() {
         driverLog: driverData.driverLog === true,
         isDriver: driverData.isDriver !== false,   // default true, matches dispatch
         isEmployee: driverData.isEmployee === true, // ground crew flag
+        tsBulkEntry: driverData.tsBulkEntry === true, // supervisor: can bulk-enter timesheets
       };
 
       // Check for active session on another device
@@ -1973,6 +2232,7 @@ export default function TimesheetApp() {
             <StepTab label={t("navDaily")} icon="📋" active={tab===2} done={tab>2} onClick={()=>goTab(2)} C={C}/>
             {!(employee && employee.driverLog) && <StepTab label={t("navExpenses")} icon="🧾" active={tab===3} done={tab>3} onClick={()=>goTab(3)} C={C}/>}
             {!(employee && employee.driverLog) && <StepTab label={t("navSummary")} icon="📊" active={tab===4} done={false} onClick={()=>goTab(4)} C={C}/>}
+            {canBulkEntry && <StepTab label={lang==="fr"?"Équipe":"Crew"} icon="👥" active={showBulk} done={false} onClick={()=>setShowBulk(true)} C={C}/>}
             {employee && <StepTab label={t("navLogout")} icon="🚪" active={false} done={false} onClick={doLogout} C={C}/>}
           </div>
         </div>
@@ -3477,6 +3737,7 @@ export default function TimesheetApp() {
         })}
       </div>}
 
+      {showBulk && <BulkEntryPanel db={db} allEvents={allEvents} employee={employee} C={C} S={S} lang={lang} onClose={()=>setShowBulk(false)} showToast={showToast}/>}
       <div style={{position:"fixed",bottom:90,left:"50%",transform:`translateX(-50%) translateY(${toast.show?0:20}px)`,background:toast.error?"#991b1b":C.green||"#16a34a",color:"#fff",padding:"14px 28px",borderRadius:12,fontSize:15,fontWeight:700,display:"flex",alignItems:"center",gap:10,opacity:toast.show?1:0,transition:"all 0.3s",pointerEvents:"none",whiteSpace:"nowrap",zIndex:999,boxShadow:"0 4px 24px rgba(0,0,0,0.3)"}}>
         <span style={{fontSize:18}}>{toast.error?"❌":"✅"}</span>
         {toast.msg}
